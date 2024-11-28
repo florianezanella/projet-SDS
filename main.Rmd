@@ -5,29 +5,22 @@ library(haven)
 library(gtsummary)
 library(ggstats)
 library(labelled)
-library(glue)
 library(stringr)
 library(gt)
 library(ggplot2)
+library(gridExtra)
 ```
 
 ```{r}
 data2004 <- read_dta("GSS2004.dta")
 ```
 
-https://larmarange.github.io/guide-R/analyses/likert.html
-
 # Recodages
 
-La difficulté ici est que les variables retournées par haven sont mixtes :
-- Numériques pour les principales réponses
-- Caractères pour les types de valeurs manquantes (dont les refus)
-Il faut plusieurs conversions pour bien récupérer ces dernières.
-
-On créé deux variables, l'une numérique avec les valeurs centrées en 0
-Et l'autre factorielle
+Une difficulté ici est que les variables retournées par haven sont mixtes : numériques pour les réponses effectives, textuelles pour les types de valeurs manquantes. Or, on ne peut agréger directement les NAs, car certaines correspondes à des réponses effectives : can't choose. Il faut plusieurs conversions successives pour bien récupérer ces dernières, mais aussi standardiser les valeurs et les labels. On créé ainsi deux nouvelles variables : l'une numérique avec les valeurs centrées en 0, correspondant à un score, l'autre factorielle.
 
 ```{r}
+# Weight variable
 data2004 <- data2004 %>%
   mutate(wgt = as.numeric(wtssnr))
 ```
@@ -35,8 +28,11 @@ data2004 <- data2004 %>%
 ```{r}
 # Q1 / How close do you feel to... America
 
-# close_lbls <- c('Not close at all', 'Not very close', 'Can\'t choose', 'Close', 'Very close') # original labels
-close_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized labels
+# Original labels
+# close_lbls <- c('Not close at all', 'Not very close', 'Can\'t choose', 'Close', 'Very close')
+
+# Standardized labels
+close_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') 
 
 data2004 <- data2004 %>%
   mutate(clseusa = as_factor(clseusa),
@@ -54,43 +50,50 @@ data2004 <- data2004 %>%
 ```
 
 ```{r}
-# Q2 / How much do you agree or disagree with the following statements?
+# Q2 / Some people say the following things are important for being truly American. Others say they are not important. How important do you think each of the following is?
 
-q_agree = c('amcitizn', 'belikeus', 'ambetter', 'ifwrong', 'amshamed')
-q_agree_n <- paste0(q_agree, "_n")
+# Variables
+q_imp = c('ambornin', 'amcit', 'amlived', 'amenglsh', 'amchrstn', 'amgovt', 'amfeel')
+q_imp_n <- paste0(q_imp, "_n")
 
-# agree_lbls <- c('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree') # original labels
-agree_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized labels
+# Original labels
+# imp_lbls <- c('Not important at all', 'Not very important', 'Can\'t choose', 'Fairly important', 'Very important')
+
+# Standardized labels
+imp_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much')
 
 data2004 <- data2004 %>%
-  mutate(across(all_of(q_agree), 
+  mutate(across(all_of(q_imp), 
                 ~ as_factor(.)
                 )) %>%
-  mutate(across(all_of(q_agree), 
+  mutate(across(all_of(q_imp), 
                 ~ case_when(
-                  . == 'STRONGLY AGREE' ~ 2,
-                  . == 'agree' ~ 1,
-                  . == 'NEITHER AGREE NOR DISAGREE' ~ 0,
-                  . == 'disagree' ~ -1,
-                  . == 'STRONGLY DISAGREE' ~ -22,
+                  . == 'VERY IMPORTANT' ~ 2,
+                  . == 'FAIRLY IMPORTANT' ~ 1,
+                  . == 'NOT VERY IMPORTANT' ~ -1,
+                  . == 'NOT IMPORTANT AT ALL' ~ -2,
                   . == 'CANT CHOOSE' ~ 0,
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
-  mutate(across(all_of(q_agree_n), 
+  mutate(across(all_of(q_imp_n), 
                 ~ factor(.,
                          levels = c(-2:2),
-                         labels = agree_lbls),
+                         labels = imp_lbls),
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
 ```{r}
 # Q3 / How proud are you of America in each of the following?
 
+# Variables
 q_proud = c('prouddem', 'proudpol', 'proudeco', 'proudsss', 'proudsci', 'proudspt', 'proudart', 'proudmil', 'proudhis', 'proudgrp')
 q_proud_n <- paste0(q_proud, "_n")
 
-# proud_lbls <- c('Not proud at all', 'Not very proud', 'Can\'t choose', 'Somewhat proud', 'Very pround')  # original labels
-proud_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized labels
+# Original labels
+# proud_lbls <- c('Not proud at all', 'Not very proud', 'Can\'t choose', 'Somewhat proud', 'Very pround')
+
+# Standardized labels
+proud_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much')
 
 data2004 <- data2004 %>%
   mutate(across(all_of(q_proud), 
@@ -115,42 +118,40 @@ data2004 <- data2004 %>%
 ```{r}
 # Q4 / How much do you agree or disagree with the following statements?
 
-q_imp = c('ambornin', 'amcit', 'amlived', 'amenglsh', 'amchrstn', 'amgovt', 'amfeel')
-q_imp_n <- paste0(q_imp, "_n")
+# Variables
+q_agree = c('amcitizn', 'belikeus', 'ambetter', 'ifwrong', 'amshamed')
+q_agree_n <- paste0(q_agree, "_n")
 
-# imp_lbls <- c('Not important at all', 'Not very important', 'Can\'t choose', 'Fairly important', 'Very important') # original labels
-imp_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized labels
+# Original labels
+# agree_lbls <- c('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree')
+
+# Standardized labels
+agree_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much')
 
 data2004 <- data2004 %>%
-  mutate(across(all_of(q_imp), 
+  mutate(across(all_of(q_agree), 
                 ~ as_factor(.)
                 )) %>%
-  mutate(across(all_of(q_imp), 
+  mutate(across(all_of(q_agree), 
                 ~ case_when(
-                  . == 'VERY IMPORTANT' ~ 2,
-                  . == 'FAIRLY IMPORTANT' ~ 1,
-                  . == 'NOT VERY IMPORTANT' ~ -1,
-                  . == 'NOT IMPORTANT AT ALL' ~ -2,
+                  . == 'STRONGLY AGREE' ~ 2,
+                  . == 'agree' ~ 1,
+                  . == 'NEITHER AGREE NOR DISAGREE' ~ 0,
+                  . == 'disagree' ~ -1,
+                  . == 'STRONGLY DISAGREE' ~ -22,
                   . == 'CANT CHOOSE' ~ 0,
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
-  mutate(across(all_of(q_imp_n), 
+  mutate(across(all_of(q_agree_n), 
                 ~ factor(.,
                          levels = c(-2:2),
-                         labels = imp_lbls),
+                         labels = agree_lbls),
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-```{r}
+```{r eval=FALSE}
 # Consistency checks
-sum(as_factor(data2004$prouddem) == 'CANT CHOOSE')
-sum(data2004$prouddem_f == 'Can\'t choose', na.rm = TRUE)
-sum(data2004$prouddem_n == 0, na.rm = TRUE)
-
-sum(as_factor(data2004$prouddem) %in% c('iap', 'na'))
-sum(is.na(data2004$prouddem_f))
-sum(is.na(data2004$prouddem_n))
-
+# Q2
 sum(as_factor(data2004$ambornin) == 'CANT CHOOSE')
 sum(data2004$ambornin_f == 'Can\'t choose', na.rm = TRUE)
 sum(data2004$ambornin_n == 0, na.rm = TRUE)
@@ -158,9 +159,44 @@ sum(data2004$ambornin_n == 0, na.rm = TRUE)
 sum(as_factor(data2004$ambornin) %in% c('iap', 'na'))
 sum(is.na(data2004$ambornin_f))
 sum(is.na(data2004$ambornin_n))
+
+# Q3
+sum(as_factor(data2004$prouddem) == 'CANT CHOOSE')
+sum(data2004$prouddem_f == 'Can\'t choose', na.rm = TRUE)
+sum(data2004$prouddem_n == 0, na.rm = TRUE)
+
+sum(as_factor(data2004$prouddem) %in% c('iap', 'na'))
+sum(is.na(data2004$prouddem_f))
+sum(is.na(data2004$prouddem_n))
 ```
 
 ```{r}
+data2004 <- data2004 %>%
+  set_variable_labels(
+      prouddem_n = 'How proud ... the way democracy works',
+      proudpol_n = 'How proud ... its political influence in the world',
+      proudeco_n = 'How proud ... America\'s economic achievements',
+      proudsss_n = 'How proud ... its social security system',
+      proudsci_n = 'How proud ... its scientific and technological achievements',
+      proudspt_n = 'How proud ... its achievements in sports',
+      proudart_n = 'How proud ... its achievements in the arts & literature',
+      proudmil_n = 'How proud ... America\'s armed forces',
+      proudhis_n = 'How proud ... its history',
+      proudgrp_n = 'How proud ... its fair and equal treatment of all groups in society',
+      ambornin_n = 'How important ... to have been born in America',
+      amcit_n = 'How important ... to have American citizenship',
+      amlived_n = 'How important ... to have lived in America for most of one\'s life',
+      amenglsh_n = 'How important ... to be able to speak English',
+      amchrstn_n = 'How important ... to be a Christian',
+      amgovt_n = 'How important ... to respect America\'s political institutions and laws',
+      amfeel_n = 'How important ... to feel American',
+      amcitizn_n = 'I would rather be a citizen of America than of any other country in the world',
+      belikeus_n = 'The world would be a better place if people from other countries were more like the Americans',
+      ambetter_n = 'Generally speaking, America is a better country than most other countries',
+      ifwrong_n = 'People should support their country even if their country is in the wrong',
+      amshamed_n = 'There are some things about America today that make me feel ashamed of America',
+      clseusa_n = 'How close do you feel to America') 
+
 data2004 <- data2004 %>%
     set_variable_labels(
       prouddem_f = 'How proud ... the way democracy works',
@@ -188,35 +224,75 @@ data2004 <- data2004 %>%
       clseusa_f = 'How close do you feel to America')
 ```
 
+# Résultats descriptifs
+
 ```{r}
-q_all = c(q_proud, q_imp, q_agree, 'clseusa')
-q_all_f <- paste0(q_all, "_f")
+q_all = c('clseusa', q_proud, q_imp, q_agree)
 
-q_agree_f <- paste0(q_agree, "_f")
-q_imp_f <- paste0(q_imp, "_f")
 q_proud_f <- paste0(q_proud, "_f")
+q_imp_f <- paste0(q_imp, "_f")
+q_agree_f <- paste0(q_agree, "_f")
+q_all_f <- paste0(q_all, "_f")
+```
 
-data2004 %>% 
-  tbl_likert(include = all_of(q_all_f)) %>% 
-  add_n() %>%
+```{r}
+list(
+  data2004 %>% tbl_likert(include = all_of(q_all_f)) %>% add_n(),
+  tbl_wide_summary(
+    data2004|> mutate(across(all_of(q_all_f), \(x) unclass(x))),
+    statistic = c("{mean}", "{sd}"),
+    type = ~ "continuous",
+    include = all_of(q_all_f),
+    digits = ~ 1) 
+) %>%
+  tbl_merge(tab_spanner = FALSE) %>%
   as_gt(rownames_to_stub = TRUE) %>%
-  tab_row_group(label = "How close", rows = which(.data$variable %in% "clseusa_f"), id = "close") %>%
-  tab_row_group(label = "How proud", rows = which(.data$variable %in% q_proud_f), id = "proud") %>%
-  tab_row_group(label = "Agree or disagree", rows = which(.data$variable %in% q_agree_f), id = "agree") %>%
-  tab_row_group(label = "How important", rows = which(.data$variable %in% q_imp_f), id = "imp")
+  tab_row_group(label = "How close do you feel to...", rows = which(.data$variable %in% "clseusa_f"), id = "close") %>%
+  tab_row_group(label = "Some people say the following things are important for being truly American. Others say they are not important. How important do you think each of the following is?", rows = which(.data$variable %in% q_imp_f), id = "imp") %>%
+  tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$variable %in% q_proud_f), id = "proud") %>%
+  tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$variable %in% q_agree_f), id = "agree") %>%
+  row_group_order(c("close", "imp", "proud", "agree"))
+```
 
-gglikert(data2004, include = clseusa_f)
-gglikert(data2004, include = all_of(q_imp_f))
-gglikert(data2004, include = all_of(q_proud_f))
-gglikert(data2004, include = all_of(q_agree_f))
-
+```{r}
 plot <- gglikert(data2004,
                  # weights = wgt,
                  include = all_of(q_all_f),
                  sort = "ascending") +
   scale_fill_brewer(palette = "RdYlBu")
+plot
 ggsave("likert_plot.png", plot = plot, width = 10, height = 8, dpi = 300)
+```
 
-# scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1))
+```{r}
+p1 <- gglikert(data2004, include = clseusa_f) +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) + 
+  scale_fill_brewer(palette = "RdYlBu") + 
+  ggtitle("How close do you feel to...") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5))
+p2 <- gglikert(data2004, include = all_of(q_imp_f)) +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) + 
+  scale_fill_brewer(palette = "RdYlBu") +
+  ggtitle("Some people say the following things are important for being truly American.") +
+  labs(subtitle = "Others say they are not important. How important do you think each of the following is?") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+p3 <- gglikert(data2004, include = all_of(q_proud_f)) + 
+  scale_fill_brewer(palette = "RdYlBu") +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) +
+  ggtitle("How proud are you of America in each of the following?") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5))
+p4 <- gglikert(data2004, include = all_of(q_agree_f)) + 
+  scale_fill_brewer(palette = "RdYlBu") +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) +
+  ggtitle("How much do you agree or disagree with the following statements?") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot <- grid.arrange(p1, p2, p3, p4, ncol = 1, heights = c(0.75, length(q_imp_f)*0.35, length(q_proud_f)*0.35, length(q_agree_f)*0.35))
+
+ggsave("likert_plots.png", plot = plot, width = 10, height = 15, dpi = 300)
 ```
 

@@ -1,18 +1,34 @@
 
 ```{r setup}
-library(dplyr)
+# Data
 library(haven)
-library(gtsummary)
-library(ggstats)
 library(labelled)
+library(dplyr)
+
+# Helpers
 library(stringr)
+
+# Tables
 library(gt)
+library(gtsummary)
+library(gtable)
+
+# Graphs
 library(ggplot2)
+library(ggstats)
+library(grid)
 library(gridExtra)
+
+# ACP
+library(factoextra)
+library(FactoMineR)
+library(ggcorrplot)
 ```
 
 ```{r}
+data1996 <- read_dta("GSS1996.dta")
 data2004 <- read_dta("GSS2004.dta")
+data2014 <- read_dta("GSS2014.dta")
 ```
 
 # Recodages
@@ -53,7 +69,7 @@ data2004 <- data2004 %>%
 # Q2 / Some people say the following things are important for being truly American. Others say they are not important. How important do you think each of the following is?
 
 # Variables
-q_imp = c('ambornin', 'amcit', 'amlived', 'amenglsh', 'amchrstn', 'amgovt', 'amfeel')
+q_imp = c('amchrstn', 'ambornin', 'amlived', 'amfeel', 'amcit', 'amgovt', 'amenglsh')
 q_imp_n <- paste0(q_imp, "_n")
 
 # Original labels
@@ -86,7 +102,7 @@ data2004 <- data2004 %>%
 # Q3 / How proud are you of America in each of the following?
 
 # Variables
-q_proud = c('prouddem', 'proudpol', 'proudeco', 'proudsss', 'proudsci', 'proudspt', 'proudart', 'proudmil', 'proudhis', 'proudgrp')
+q_proud = c('proudsss', 'proudgrp', 'proudpol', 'prouddem', 'proudeco', 'proudspt', 'proudart', 'proudhis', 'proudmil', 'proudsci')
 q_proud_n <- paste0(q_proud, "_n")
 
 # Original labels
@@ -119,7 +135,7 @@ data2004 <- data2004 %>%
 # Q4 / How much do you agree or disagree with the following statements?
 
 # Variables
-q_agree = c('amcitizn', 'belikeus', 'ambetter', 'ifwrong', 'amshamed')
+q_agree = c('ifwrong', 'belikeus', 'amshamed', 'ambetter', 'amcitizn')
 q_agree_n <- paste0(q_agree, "_n")
 
 # Original labels
@@ -233,66 +249,194 @@ q_proud_f <- paste0(q_proud, "_f")
 q_imp_f <- paste0(q_imp, "_f")
 q_agree_f <- paste0(q_agree, "_f")
 q_all_f <- paste0(q_all, "_f")
+
+q_all_n <- paste0(q_all, "_n")
 ```
 
 ```{r}
-list(
-  data2004 %>% tbl_likert(include = all_of(q_all_f)) %>% add_n(),
-  tbl_wide_summary(
-    data2004|> mutate(across(all_of(q_all_f), \(x) unclass(x))),
-    statistic = c("{mean}", "{sd}"),
-    type = ~ "continuous",
-    include = all_of(q_all_f),
-    digits = ~ 1) 
-) %>%
+likert_table <- 
+  list(
+    data2004 %>% tbl_likert(include = all_of(q_all_f)),
+    tbl_wide_summary(
+      data2004|> mutate(across(all_of(q_all_f), \(x) unclass(x))),
+      statistic = c("{mean}", "{sd}", "{N_nonmiss}"),
+      type = ~ "continuous",
+      include = all_of(q_all_f),
+      digits = ~ 1)) %>%
   tbl_merge(tab_spanner = FALSE) %>%
   as_gt(rownames_to_stub = TRUE) %>%
+  cols_hide(columns = "__GT_ROWNAME_PRIVATE__") %>%
+  
   tab_row_group(label = "How close do you feel to...", rows = which(.data$variable %in% "clseusa_f"), id = "close") %>%
   tab_row_group(label = "Some people say the following things are important for being truly American. Others say they are not important. How important do you think each of the following is?", rows = which(.data$variable %in% q_imp_f), id = "imp") %>%
   tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$variable %in% q_proud_f), id = "proud") %>%
   tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$variable %in% q_agree_f), id = "agree") %>%
-  row_group_order(c("close", "imp", "proud", "agree"))
+  row_group_order(c("close", "imp", "proud", "agree")) %>%
+  
+  tab_style(
+    style = list(
+      cell_fill(color = "lightgrey"),
+      cell_text(style = "italic", weight = "bold")),
+    location = cells_row_groups())  %>%
+  tab_style(
+    style = cell_borders(sides = "left", style = "dashed", color = "black"),
+    locations = cells_body(columns = "stat_1_1" | "stat_1_2" | "stat_3_2"))
+
+likert_table
 ```
 
-```{r}
+```{r include=FALSE}
 plot <- gglikert(data2004,
                  # weights = wgt,
                  include = all_of(q_all_f),
                  sort = "ascending") +
   scale_fill_brewer(palette = "RdYlBu")
-plot
-ggsave("likert_plot.png", plot = plot, width = 10, height = 8, dpi = 300)
+
+ggsave("output/likert_plot.png", plot = plot, width = 10, height = 8, dpi = 300)
 ```
 
-```{r}
-p1 <- gglikert(data2004, include = clseusa_f) +
-  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) + 
+```{r include=FALSE}
+# Creating likert plots for each question
+p1 <- gglikert(data2004, include = clseusa_f, add_totals = FALSE) +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) + 
   scale_fill_brewer(palette = "RdYlBu") + 
   ggtitle("How close do you feel to...") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
-p2 <- gglikert(data2004, include = all_of(q_imp_f)) +
-  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) + 
+
+p2 <- gglikert(data2004, include = all_of(q_imp_f), add_totals = FALSE) +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) + 
   scale_fill_brewer(palette = "RdYlBu") +
   ggtitle("Some people say the following things are important for being truly American.") +
   labs(subtitle = "Others say they are not important. How important do you think each of the following is?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5))
-p3 <- gglikert(data2004, include = all_of(q_proud_f)) + 
+
+p3 <- gglikert(data2004, include = all_of(q_proud_f), add_totals = FALSE) + 
   scale_fill_brewer(palette = "RdYlBu") +
-  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) +
   ggtitle("How proud are you of America in each of the following?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
-p4 <- gglikert(data2004, include = all_of(q_agree_f)) + 
+
+p4 <- gglikert(data2004, include = all_of(q_agree_f), add_totals = FALSE) + 
   scale_fill_brewer(palette = "RdYlBu") +
-  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-1, 1)) +
+  scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) +
   ggtitle("How much do you agree or disagree with the following statements?") +
   theme(plot.title = element_text(hjust = 0.5))
 
-plot <- grid.arrange(p1, p2, p3, p4, ncol = 1, heights = c(0.75, length(q_imp_f)*0.35, length(q_proud_f)*0.35, length(q_agree_f)*0.35))
+# Stacking the plots while controlling for their relative height
+plot <- grid.arrange(p1, p2, p3, p4, ncol = 1, heights = c(0.22, length(q_imp_f)*0.11, length(q_proud_f)*0.10, length(q_agree_f)*0.13))
 
-ggsave("likert_plots.png", plot = plot, width = 10, height = 15, dpi = 300)
+# Adding a title
+title <- textGrob("Likert 2004", gp = gpar(fontsize = 16, fontface = "bold"))
+plot <- gtable_add_rows(plot, unit(1, "cm"), pos = 0)
+plot <- gtable_add_grob(plot, title, t = 1, l = 1, r = ncol(plot))
+
+ggsave("output/likert_plots_2004.png", plot = plot, width = 10, height = 15, dpi = 300)
+```
+
+# ACP
+
+```{r}
+
+```
+
+```{r}
+# Fonction pour tracer les corrplots
+draw_corrplot <- function(data, title, subtitle, filename, range) {
+  corrplot <- ggcorrplot(
+    data,
+    method = "square",
+    ggtheme = theme_grey,
+    show.legend = TRUE,
+    outline.color = "darkgrey",
+    tl.cex = 8) +
+    
+    if (identical(range, c(-1,1))) {
+      scale_fill_gradient2(limit = c(-1,1), low = "#6D9EC1", mid = "white", high =  "#E46726", midpoint = 0)}
+    else if (identical(range, c(0,1))) {
+      scale_fill_gradient2(limit = c(0, 1), low = "white", high =  "#E46726")}
+
+  corrplot$theme$plot.title$hjust <- 0.5
+  corrplot$theme$plot.title$size <- 12
+  corrplot$theme$plot.subtitle$hjust <- 0.5
+  corrplot$theme$plot.subtitle$size <- 12
+  corrplot$theme$legend.key.width <- unit(0.3, "cm")
+  corrplot$theme$legend.key.height <- unit(1, "null")
+  corrplot$theme$legend.title <- element_blank()
+
+  ggsave(filename, plot = corrplot)
+  
+  corrplot$labels$title <- title
+  corrplot$labels$subtitle <- subtitle
+  
+  print(corrplot)
+}
+```
+
+```{r}
+pca_data <- data2004 %>%
+  select(all_of(q_all_n)) %>%
+  na.omit()
+
+pca_results <- PCA(pca_data, scale.unit = TRUE, ncp = 10, graph = FALSE)
+
+# Résultats
+## Histogramme de la contribution des axes à la variance totale
+screeplot <- fviz_screeplot(pca_results, addlabels = TRUE, ylim = c(0, 30), title = "") + theme_gray()
+screeplot$layers[[1]]$aes_params$fill <- "lightskyblue"
+screeplot$layers[[1]]$aes_params$colour <- "cornflowerblue"
+screeplot$layers[[2]]$aes_params$colour <- "darkblue"
+screeplot$layers[[3]]$aes_params$colour <- "darkblue"
+screeplot$layers[[4]]$aes_params$colour <- "darkblue"
+screeplot$labels$x <- "Dimensions"
+screeplot$labels$y <- "% de variance expliquée"
+screeplot$labels$title = "Histogramme de l'inertie totale"
+screeplot$theme$plot.title$hjust <- 0.5
+screeplot
+ggsave("output/screeplot_ACP.png", plot = screeplot, width = 10, height = 6, units = "in", dpi = 300)
+
+## Contribution des variables aux axes (comportements électoraux seulement)
+## Correspond à la qualité de représentation des variables (= cos2) normalisée entre 1 et 100
+## Présentable à l'aide d'un tableau...
+coeffs <- pca_results$var$contrib
+labels <- rownames(pca_results$var$contrib)
+axis_df <- data.frame(labels, coeffs, row.names = NULL)
+colnames(axis_df) <- c("Variables", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
+axis_tbl <- axis_df %>%
+  gt() %>%
+  fmt_number(decimals = 2, drop_trailing_zeros = TRUE) %>%
+  tab_header("Contribution des variables à l'inertie des axes", subtitle = NULL, preheader = NULL) %>%
+  tab_spanner(label = "Axes", columns = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), id = "axes") %>%
+  data_color(method = "numeric", columns = !matches("Variables"), palette ="Oranges", ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = list(
+      cells_column_labels(columns = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")),
+      cells_body(columns = !matches("Variables")))) %>%
+  tab_style(
+    style = cell_fill(color = "lightgrey"),
+    locations = cells_column_labels(columns = c("1", "3", "5", "7", "9"))) 
+axis_tbl
+gtsave(axis_tbl, filename = "contrib_axes_ACP.docx", path = "output/")
+
+## ... ou d'un corrplot
+draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variables à l'inertie des axes", "", "output/contrib_axes_ACP.png", range = c(0,1))
+
+## Corrélation des variables aux axes
+## Avec à nouveau deux représentations possibles...
+## Des corrplots
+draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcomes aux axes", "", "output/corr_outc_axes_ACP.png", range = c(-1,1))
+# draw_corrplot(t(pca_results$quanti.sup$coord[, 1:3]), "Corrélation des régresseurs", "aux axes", "output/corr_rég_axes_ACP.png", range = c(-1,1))
+## Des projections sur les plans factoriels
+plot.PCA(pca_results, axes = c(1,2), choix = "var", select = "cos2 7", title = "Projection sur les axes 1 et 2")
+plot.PCA(pca_results, axes=c(1,3), choix="var", select = "cos2 7", title = "Projection sur les axes 1 et 3")
+plot.PCA(pca_results, axes=c(2,3), choix="var", select = "cos2 7", title = "Projection sur les axes 2 et 3")
+
+## Qualité de représentation des variables
+draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/qual_rep_outc_ACP.png", range = c(0,1))
+# draw_corrplot(t(pca_results$quanti.sup$cos2[, 1:3]), "Qualité de représentation", "des régresseurs", "output/qual_rep_régr_ACP.png", range = c(0,1))
 ```
 

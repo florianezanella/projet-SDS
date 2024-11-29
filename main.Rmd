@@ -9,26 +9,17 @@ data2004 <- read_dta("data/GSS2004.dta")
 # data2014 <- read_dta("data/GSS2014.dta")
 ```
 
-# Recodages 2004
+On se limite pour l'instant aux données concernant l'année 2004.
+
+# Recodages
 
 ## Outcomes
 
-Les données proviennent du module Identité Nationale, pp.96-109 du
-questionnaire disponible ici :
-<https://gss.norc.org/content/dam/gss/get-documentation/pdf/quex/2004%20GSS%20V6.pdf>
+Les données proviennent du module Identité Nationale, pp.96-109 du questionnaire disponible ici : <https://gss.norc.org/content/dam/gss/get-documentation/pdf/quex/2004%20GSS%20V6.pdf>
 
 Ce module a seulement été administré à 1215 personnes.
 
-Une difficulté est que les variables retournées par haven sont mixtes :
-numériques pour les réponses effectives, textuelles pour les types de
-NAs. Or, il serait dommage d'agréger directement les NAs, car certaines
-correspondes à des réponses effectives, avec la modalité can't choose.
-Il faut plusieurs conversions successives pour bien récupérer cette
-dernière. On la traite comme une modalité neutre, les échelles de Likert
-à 4 modalités passant ainsi à 5. On en profite pour standardiser les
-valeurs en les centrant sur 0, ainsi que les labels. On obtient deux
-nouvelles variables : l'une numérique correspondant à un score, l'autre
-factorielle.
+Une difficulté est que les variables retournées par haven sont mixtes : numériques pour les réponses effectives, textuelles pour les types de NAs. Or, il serait dommage d'agréger directement les NAs, car certaines correspondes à des réponses effectives, avec la modalité can't choose. Il faut plusieurs conversions successives pour bien récupérer cette dernière. On la traite comme une modalité neutre, les échelles de Likert à 4 modalités passant ainsi à 5. On en profite pour standardiser les valeurs en les centrant sur 0, ainsi que les labels. On obtient deux nouvelles variables : l'une numérique correspondant à un score, l'autre factorielle.
 
 ### Q.2
 
@@ -42,24 +33,23 @@ c.  America
 
 d.  North America
 
-B&M retiennent n'utilisent pas les items a (clsetown), b (clsestat) et d
-(clsenoam).
+B&M retiennent n'utilisent pas les items a (clsetown), b (clsestat) et d (clsenoam).
 
 ```{r}
 # Variables
-close_vars <- c('clseusa')
-# close_vars <- c('clsetown', 'clsestat', 'clseusa', 'clsenoam') # with all items
-close_vars_n <- paste0(close_vars, "_n")
+q2_vars <- c('clseusa')
+# q2_vars <- c('clsetown', 'clsestat', 'clseusa', 'clsenoam') # with all items
+q2_vars_n <- paste0(q2_vars, "_n")
 
 # Labels
-# close_lbls <- c('Not close at all', 'Not very close', 'Can\'t choose', 'Close', 'Very close') # original
-close_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
+# q2_lbls <- c('Not close at all', 'Not very close', 'Can\'t choose', 'Close', 'Very close') # original
+q2_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
 
 data2004 <- data2004 %>%
-  mutate(across(all_of(close_vars), 
+  mutate(across(all_of(q2_vars), 
                 ~ as_factor(.)
-                )) %>%
-  mutate(across(all_of(close_vars), 
+  )) %>%
+  mutate(across(all_of(q2_vars), 
                 ~ case_when(
                   . == 'VERY CLOSE' ~ 2,
                   . == 'close' ~ 1,
@@ -68,14 +58,14 @@ data2004 <- data2004 %>%
                   . == 'NOT CLOSE AT ALL' ~ -2,
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
-  mutate(across(all_of(close_vars_n), 
+  mutate(across(all_of(q2_vars_n), 
                 ~ factor(.,
-                         levels = c(-2:2),
-                         labels = close_lbls),
+                         levels = -2:2,
+                         labels = q2_lbls),
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Consistency check
 sum(as_factor(data2004$clseusa) == 'CANT CHOOSE')
 sum(data2004$clseusa_f == 'Can\'t choose', na.rm = TRUE)
@@ -95,7 +85,7 @@ data2004 <- data2004 %>%
     clseusa_f = 'How close ... America')
 ```
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Additional labels
 data2004 <- data2004 %>%
   set_variable_labels(
@@ -110,9 +100,7 @@ data2004 <- data2004 %>%
 
 ### Q.3
 
-Some people say the following things are important for being truly
-American. Others say they are not important. How important do you think
-each of the following is?
+Some people say the following things are important for being truly American. Others say they are not important. How important do you think each of the following is?
 
 a.  To have been born in America
 
@@ -132,19 +120,19 @@ B&M n'utilisent pas l'a modalité l'item h (amancstr).
 
 ```{r}
 # Variables
-imp_vars <- c('ambornin', 'amcit', 'amlived', 'amenglsh', 'amchrstn', 'amgovt', 'amfeel')
-# imp_vars <- c(imp_vars, 'amancstr') # with all items
-imp_vars_n <- paste0(imp_vars, "_n")
+q3_vars <- c('ambornin', 'amcit', 'amlived', 'amenglsh', 'amchrstn', 'amgovt', 'amfeel')
+# q3_vars <- c(q3_vars, 'amancstr') # with all items
+q3_vars_n <- paste0(q3_vars, "_n")
 
 # Labels
-# imp_lbls <- c('Not important at all', 'Not very important', 'Can\'t choose', 'Fairly important', 'Very important') # originals
-imp_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
+# q3_lbls <- c('Not important at all', 'Not very important', 'Can\'t choose', 'Fairly important', 'Very important') # originals
+q3_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
 
 data2004 <- data2004 %>%
-  mutate(across(all_of(imp_vars), 
+  mutate(across(all_of(q3_vars), 
                 ~ as_factor(.)
-                )) %>%
-  mutate(across(all_of(imp_vars), 
+  )) %>%
+  mutate(across(all_of(q3_vars), 
                 ~ case_when(
                   . == 'VERY IMPORTANT' ~ 2,
                   . == 'FAIRLY IMPORTANT' ~ 1,
@@ -153,14 +141,14 @@ data2004 <- data2004 %>%
                   . == 'CANT CHOOSE' ~ 0,
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
-  mutate(across(all_of(imp_vars_n), 
+  mutate(across(all_of(q3_vars_n), 
                 ~ factor(.,
-                         levels = c(-2:2),
-                         labels = imp_lbls),
+                         levels = -2:2,
+                         labels = q3_lbls),
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Consistency check
 sum(as_factor(data2004$ifwrong) %in% c('CANT CHOOSE', 'NEITHER AGREE NOR DISAGREE'))
 sum(data2004$ifwrong_f == 'Can\'t choose', na.rm = TRUE)
@@ -192,7 +180,7 @@ data2004 <- data2004 %>%
     amfeel_f = 'How important ... to feel American')
 ```
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Additional labels
 data2004 <- data2004 %>%
   set_variable_labels(
@@ -205,23 +193,17 @@ data2004 <- data2004 %>%
 
 How much do you agree or disagree with the following statements?
 
-a.  I would rather be a citizen of America than of any other country in
-    the world
+a.  I would rather be a citizen of America than of any other country in the world
 
-b.  There are some things about America today that make me feel ashamed
-    of America
+b.  There are some things about America today that make me feel ashamed of America
 
-c.  The world would be a better place if people from other countries
-    were more like the Americans
+c.  The world would be a better place if people from other countries were more like the Americans
 
-d.  Generally speaking, America is a better country than most other
-    countries
+d.  Generally speaking, America is a better country than most other countries
 
-e.  People should support their country even if the country is in the
-    wrong.
+e.  People should support their country even if the country is in the wrong.
 
-f.  When my country does well in international sports, it makes me proud
-    to be American
+f.  When my country does well in international sports, it makes me proud to be American
 
 g.  I am often less proud of America than I would like to be
 
@@ -229,19 +211,19 @@ B&M n'utilisent pas les items f (amsports) et g (lessprd).
 
 ```{r}
 # Variables
-agree_vars <- c('amcitizn', 'amshamed', 'belikeus', 'ambetter', 'ifwrong') 
-# agree_vars <- c(agree_vars, 'amsports', 'lessprd') # with all items
-agree_vars_n <- paste0(agree_vars, "_n")
+q4_vars <- c('amcitizn', 'amshamed', 'belikeus', 'ambetter', 'ifwrong') 
+# q4_vars <- c(q4_vars, 'amsports', 'lessprd') # with all items
+q4_vars_n <- paste0(q4_vars, "_n")
 
 # Labels
-# agree_lbls <- c('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree') # original
-agree_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
+# q4_lbls <- c('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree') # original
+q4_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
 
 data2004 <- data2004 %>%
-  mutate(across(all_of(agree_vars), 
+  mutate(across(all_of(q4_vars), 
                 ~ as_factor(.)
-                )) %>%
-  mutate(across(all_of(agree_vars), 
+  )) %>%
+  mutate(across(all_of(q4_vars), 
                 ~ case_when(
                   . == 'STRONGLY AGREE' ~ 2,
                   . == 'agree' ~ 1,
@@ -251,14 +233,14 @@ data2004 <- data2004 %>%
                   . == 'CANT CHOOSE' ~ 0,
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
-  mutate(across(all_of(agree_vars_n), 
+  mutate(across(all_of(q4_vars_n), 
                 ~ factor(.,
-                         levels = c(-2:2),
-                         labels = agree_lbls),
+                         levels = -2:2,
+                         labels = q4_lbls),
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Consistency check
 sum(as_factor(data2004$ambornin) == 'CANT CHOOSE')
 sum(data2004$ambornin_f == 'Can\'t choose', na.rm = TRUE)
@@ -286,7 +268,7 @@ data2004 <- data2004 %>%
     amshamed_f = 'There are some things about America today that make me feel ashamed of America')
 ```
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Additional labels
 data2004 <- data2004 %>%
   set_variable_labels(
@@ -325,18 +307,18 @@ B&M utilisent tous les items.
 
 ```{r}
 # Variables
-proud_vars = c('proudsss', 'proudgrp', 'proudpol', 'prouddem', 'proudeco', 'proudspt', 'proudart', 'proudhis', 'proudmil', 'proudsci')
-proud_vars_n <- paste0(proud_vars, "_n")
+q5_vars = c('proudsss', 'proudgrp', 'proudpol', 'prouddem', 'proudeco', 'proudspt', 'proudart', 'proudhis', 'proudmil', 'proudsci')
+q5_vars_n <- paste0(q5_vars, "_n")
 
 # Labels
-# proud_lbls <- c('Not proud at all', 'Not very proud', 'Can\'t choose', 'Somewhat proud', 'Very pround') # original
-proud_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
+# q5_lbls <- c('Not proud at all', 'Not very proud', 'Can\'t choose', 'Somewhat proud', 'Very pround') # original
+q5_lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much') # standardized
 
 data2004 <- data2004 %>%
-  mutate(across(all_of(proud_vars), 
+  mutate(across(all_of(q5_vars), 
                 ~ as_factor(.)
-                )) %>%
-  mutate(across(all_of(proud_vars), 
+  )) %>%
+  mutate(across(all_of(q5_vars), 
                 ~ case_when(
                   . == 'VERY PROUD' ~ 2,
                   . == 'SOMEWHAT PROUD' ~ 1,
@@ -345,14 +327,14 @@ data2004 <- data2004 %>%
                   . == 'CANT CHOOSE' ~ 0,
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
-  mutate(across(all_of(proud_vars_n), 
+  mutate(across(all_of(q5_vars_n), 
                 ~ factor(.,
-                         levels = c(-2:2),
-                         labels = proud_lbls),
+                         levels = -2:2,
+                         labels = q5_lbls),
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Consistency check
 sum(as_factor(data2004$prouddem) == 'CANT CHOOSE')
 sum(data2004$prouddem_f == 'Can\'t choose', na.rm = TRUE)
@@ -394,147 +376,211 @@ data2004 <- data2004 %>%
 
 ```{r}
 data2004 <- data2004 %>%
-  mutate(wgt = as.numeric(wtssnr))
+  mutate(wgt = as.numeric(wtssnr)) %>%
+  set_variable_labels(wgt = 'survey_weights')
 ```
 
 ## Contrôles
 
-Variable pour l'âge : age
+### Âge
 
-### Genre
+```{r}
+data2004 <- data2004 %>%
+  mutate(
+    age_n = as.numeric(age),
+    age_f = cut(
+      age, 
+      breaks = c(-Inf, 25, 40, 55, 70, Inf),
+      labels = c('< 25 yo', '25-40 yo', '40-55 yo','55-70 yo', '>70 yo'),
+      right = FALSE)) %>%
+  set_variable_labels(
+    age_n = 'Age',
+    age_f = 'Age')
+```
 
--   Recoding gender gen male=(sex==1) label define male 0 "Female" 1
-    "Male" label values male male
+```{r eval=FALSE}
+hist(data2004$age)
+plot(data2004$age_f)
+
+sum(is.na(data2004$age))
+sum(is.na(data2004$age_n))
+sum(is.na(data2004$age_f))
+```
+
+### Sexe
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(sexe = factor(
+      case_when(
+        sex == 1 ~ 1,
+        sex ==  2 ~ 0),
+      levels = 0:1, 
+      labels = c('F', 'M'))) %>%
+  set_variable_labels(sexe = "Sexe")
+```
+
+```{r eval=FALSE}
+sum(is.na(data2004$sex))
+sum(is.na(data2004$sexe))
+```
 
 ### Race
 
--   Recoding race gen race_hisp=(ethnic==17 \| ethnic==22 \| ethnic ==
-    38) recode race (3=4), gen(racer) replace racer=3 if race_hisp==1
-        label define racer 1 "White" 2 "Black" 3 "Hisp" 4 "Other" label
-        values racer racer
+La variable race comprend seulement 3 modalités : white / black / other. La variable ethnic est beaucoup plus détaillée, avec 45 modalités. B&M l'utilisent pour ajouter une modalité hispanc à la variable race, à partir des 2 modalités suivantes : mexico (17) / puerto rico (22) / other spanish (38).
 
-### Education
+```{r}
+data2004 <- data2004 %>%
+  mutate(race_f = factor(
+      case_when(
+        ethnic %in% c(17, 22, 38) ~ 3,
+        race == 1 ~ 1,
+        race == 2 ~ 2,
+        race == 3 ~ 4,
+        TRUE ~ NA_real_),
+      levels = 1:4, 
+      labels = c('White', 'Black', 'Hispanic', 'Other'))) %>%
+  set_variable_labels(race_f = "Race")
+```
 
--   Recoding education gen educr=educ\<12 replace educr=2 if educ\>=12 &
-    educ\<16 replace educr=3 if educ==16 replace educr=4 if educ\>16
-    replace educr=. if inlist(educ,98,99) label define educr 1 "Less
-    than HS" 2 "HS or some college" 3 "BA" 4 "Advanced degree" label
-    values educr educr
+On a repris l'approche de B&M, qui fait primer l'ethnicité sur la race. Elle est discutable, car parmi les 185 personnes déclarant une ethnicité hispanique, 108 se déclarent de race blanche ou noire...
+
+```{r eval=FALSE}
+sum(data2004$ethnic %in% c(17, 22, 38), na.rm = TRUE)
+sum(data2004$ethnic %in% c(17, 22, 38) & data2004$race %in% c(1,2), na.rm = TRUE)
+
+sum(is.na(data2004$race))
+sum(is.na(data2004$race_f))
+```
+
+### Éducation
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(
+    educ_n = as.numeric(educ),
+    educ_f = cut(
+      educ, 
+      breaks = c(-Inf, 12, 16, 17, Inf),
+      labels = c('< High school', 'High school or some college', 'Bachelor', 'Advanced degree'),
+      right = FALSE)) %>%
+  set_variable_labels(
+    educ_n = 'Education',
+    educ_f = 'Education')
+```
+
+```{r eval=FALSE}
+sum(data2004$educ == 16, na.rm = TRUE)
+sum(data2004$educ_f == 'BA', na.rm = TRUE)
+
+sum(is.na(data2004$educ))
+sum(is.na(data2004$educ_n))
+sum(is.na(data2004$educ_f))
+```
 
 ### Religion
 
--   Recoding religious denomination gen reltrad=0 replace reltrad=1 if
-    denom==20 \| denom==21 \| (denom==10 & race==2) \| (denom==11 &
-    race==2) \| (denom==18 & race==2) \| (denom==28 & race==2) \|
-    denom==12 \| denom==13 \| (denom==15 & race==2) \| (denom==23 &
-    race==2) \| (denom==14 & race==2) replace reltrad=1 if other==15 \|
-    other==14 \| other==128 \| other==37 \| other==38 \| other==7 \|
-    other==88 \| other==98 \| other==56 \| other==104 \| (other==93 &
-    race==2) \| other==103 \| other==133 \| other==78 \| other==79 \|
-    other==21 \| other==85 \| other==86 \| other==87 replace reltrad=2
-    if (denom==10 & race!=2) \| (denom==18 & race!=2) \| denom==32 \|
-    (denom==15 & race!=2) \| denom==34 \| (denom==23 & race!=2) \|
-    denom==42 \| (denom==14 & race!=2) \| denom==33 replace reltrad=2 if
-    other==10 \| other==111 \| other==107 \| other==138 \| other==12 \|
-    other==109 \| other==20 \| other==22 \| other==132 \| other==110 \|
-    other==122 \| other==102 \| other==135 \| other==108 \| other==29 \|
-    other==9 \| other==125 \| other==28\| other==31 \| other==32 \|
-    other==26 \| other==101 \| other==36 \| other==35 \| other==34 \|
-    other==127 \| other==121 \| other==5 \| other==116 \| other==39 \|
-    other==41 \| other==42 \| other==43 \| other==2 \| other==91 \|
-    other==45 \| other==47 \| other==112 \| other==120 \| other==139 \|
-    other==124 \| other==51 \| other==53 \| other==13 \| other==16 \|
-    other==52 \| other==100 \| other==90 \| other==18 \| other==55 \|
-    other==24 \| other==3 \| other==134 \| other==146 \| other==129 \|
-    other==131 \| other==63 \| other==115 \| (other==93 & race!=2) \|
-    other==117 \| other==92 \| other==65 \| other==6 \| other==27 \|
-    other==97 \| other==68 \| other==66 \| other==67 \| other==69 \|
-    other==140 \| other==57 \| other==133 \| other==76 \| other==77 \|
-    other==94 \| other==106 \| other==118 \| other==83 \| other==84 \|
-    (denom==70 & attend\>=4 & attend!=9) replace reltrad=3 if (denom==11
-    & race!=2) \| denom==30 \| denom==50 \| denom==35 \| denom==31 \|
-    denom==38 \| (denom==28 & race!=2) \| denom==40 \| denom==48 \|
-    denom==43 \| denom==22 \| denom==41 replace reltrad=3 if other==99
-    \| other==19 \| other==25 \| other==40 \| other==44 \| other==46 \|
-    other==49 \| other==48 \| other==50 \| other==54 \| other==89 \|
-    other==1 \| other==105 \| other==8 \| other==70 \| other==71 \|
-    other==73 \| other==72 \| other==148 \| other==23 \| other==119 \|
-    other==81 \| other==96 replace reltrad=7 if other==30 \| other==33
-    \| other==145 \| other==114 \| other==58 \| other==62 \| other==59
-    \| other==60 \| other==61 \| other==64 \| other==130 \| other==113
-    replace reltrad=7 if other==29 \| other==17 \| other==75 \|
-    other==136 \| other==141 \| other==74 \| other==11 \| other==80 \|
-    other==82 \| other==95 replace reltrad=4 if relig==2 \| other==123
-    replace reltrad=5 if relig==3 replace reltrad=6 if relig==4 replace
-    reltrad=7 if relig==5 replace reltrad=7 if reltrad==0 recode reltrad
-    (3=1) (1=3) label define reltrad 1 "Mainline Protestant" 2
-    "Evangelical Protestant" 3 "Black Protestant" 4 "Catholic" 5
-    "Jewish" 6 "None" 7 "Other" label values reltrad reltrad
+-   Recoding religious denomination gen reltrad=0 replace reltrad=1 if denom==20 \| denom==21 \| (denom==10 & race==2) \| (denom==11 & race==2) \| (denom==18 & race==2) \| (denom==28 & race==2) \| denom==12 \| denom==13 \| (denom==15 & race==2) \| (denom==23 & race==2) \| (denom==14 & race==2) replace reltrad=1 if other==15 \| other==14 \| other==128 \| other==37 \| other==38 \| other==7 \| other==88 \| other==98 \| other==56 \| other==104 \| (other==93 & race==2) \| other==103 \| other==133 \| other==78 \| other==79 \| other==21 \| other==85 \| other==86 \| other==87 replace reltrad=2 if (denom==10 & race!=2) \| (denom==18 & race!=2) \| denom==32 \| (denom==15 & race!=2) \| denom==34 \| (denom==23 & race!=2) \| denom==42 \| (denom==14 & race!=2) \| denom==33 replace reltrad=2 if other==10 \| other==111 \| other==107 \| other==138 \| other==12 \| other==109 \| other==20 \| other==22 \| other==132 \| other==110 \| other==122 \| other==102 \| other==135 \| other==108 \| other==29 \| other==9 \| other==125 \| other==28\| other==31 \| other==32 \| other==26 \| other==101 \| other==36 \| other==35 \| other==34 \| other==127 \| other==121 \| other==5 \| other==116 \| other==39 \| other==41 \| other==42 \| other==43 \| other==2 \| other==91 \| other==45 \| other==47 \| other==112 \| other==120 \| other==139 \| other==124 \| other==51 \| other==53 \| other==13 \| other==16 \| other==52 \| other==100 \| other==90 \| other==18 \| other==55 \| other==24 \| other==3 \| other==134 \| other==146 \| other==129 \| other==131 \| other==63 \| other==115 \| (other==93 & race!=2) \| other==117 \| other==92 \| other==65 \| other==6 \| other==27 \| other==97 \| other==68 \| other==66 \| other==67 \| other==69 \| other==140 \| other==57 \| other==133 \| other==76 \| other==77 \| other==94 \| other==106 \| other==118 \| other==83 \| other==84 \| (denom==70 & attend\>=4 & attend!=9) replace reltrad=3 if (denom==11 & race!=2) \| denom==30 \| denom==50 \| denom==35 \| denom==31 \| denom==38 \| (denom==28 & race!=2) \| denom==40 \| denom==48 \| denom==43 \| denom==22 \| denom==41 replace reltrad=3 if other==99 \| other==19 \| other==25 \| other==40 \| other==44 \| other==46 \| other==49 \| other==48 \| other==50 \| other==54 \| other==89 \| other==1 \| other==105 \| other==8 \| other==70 \| other==71 \| other==73 \| other==72 \| other==148 \| other==23 \| other==119 \| other==81 \| other==96 replace reltrad=7 if other==30 \| other==33 \| other==145 \| other==114 \| other==58 \| other==62 \| other==59 \| other==60 \| other==61 \| other==64 \| other==130 \| other==113 replace reltrad=7 if other==29 \| other==17 \| other==75 \| other==136 \| other==141 \| other==74 \| other==11 \| other==80 \| other==82 \| other==95 replace reltrad=4 if relig==2 \| other==123 replace reltrad=5 if relig==3 replace reltrad=6 if relig==4 replace reltrad=7 if relig==5 replace reltrad=7 if reltrad==0 recode reltrad (3=1) (1=3) label define reltrad 1 "Mainline Protestant" 2 "Evangelical Protestant" 3 "Black Protestant" 4 "Catholic" 5 "Jewish" 6 "None" 7 "Other" label values reltrad reltrad
 
--   Recoding religiosity gen religstr=reliten recode religstr (2/4=0)
-    (8/9=.)
+-   Recoding religiosity gen religstr=reliten recode religstr (2/4=0) (8/9=.)
 
 ### Revenus
 
--   Converting income from 1986 to 2004 dollars (based on
-    <http://data.bls.gov/cgi-bin/cpicalc.pl>) gen
-    realinc2004=realinc\*1.72 gen lnrealinc2004=ln(realinc2004)
+-   Converting income from 1986 to 2004 dollars (based on <http://data.bls.gov/cgi-bin/cpicalc.pl>) gen realinc2004=realinc\*1.72 gen lnrealinc2004=ln(realinc2004)
 
 ### Identification partisane
 
--   Recoding party identification recode partyid (0=1) (1/2=2) (3=3)
-    (4/5=4) (6=5) (7=6), gen(partyidr) recode partyidr (6=.) label
-    define partyidr 1 "Strong Democrat" 2 "Democrat" 3 "Independent" 4
-    "Republican" 5 "Strong Republican" 6 "Other" label values partyidr
-    partyidr
+-   Recoding party identification recode partyid (0=1) (1/2=2) (3=3) (4/5=4) (6=5) (7=6), gen(partyidr) recode partyidr (6=.) label define partyidr 1 "Strong Democrat" 2 "Democrat" 3 "Independent" 4 "Republican" 5 "Strong Republican" 6 "Other" label values partyidr partyidr
 
 ### Lieu de naissance
 
--   Recoding birth in the U.S. gen bornnot=born recode bornnot (1=0)
-    (2=1)
+-   Recoding birth in the U.S. gen bornnot=born recode bornnot (1=0) (2=1)
 
 ### Région
 
--   Recoding region recode region (1/2=1) (3/4=2) (5/7=3) (8=4) (9=5),
-    gen(regionr) label define regionr 1 "Northeast" 2 "Midwest" 3
-    "South" 4 "Mountain" 5 "Pacific" label values regionr regionr
+-   Recoding region recode region (1/2=1) (3/4=2) (5/7=3) (8=4) (9=5), gen(regionr) label define regionr 1 "Northeast" 2 "Midwest" 3 "South" 4 "Mountain" 5 "Pacific" label values regionr regionr
+
+# Valeurs manquantes
+
+On élimine les enquêtés auquel le module Identité nationale n'a pas été administré, ainsi que les variables non-utilisées.
+
+```{r}
+q2_vars_f <- paste0(q2_vars, "_f")
+q3_vars_f <- paste0(q3_vars, "_f")
+q4_vars_f <- paste0(q4_vars, "_f")
+q5_vars_f <- paste0(q5_vars, "_f")
+
+base_outcomes <- c(q2_vars, q3_vars, q4_vars, q5_vars)
+f_outcomes <- paste0(base_outcomes, "_f")
+n_outcomes <- paste0(base_outcomes, "_n")
+all_outcomes <- c(f_outcomes, n_outcomes)
+
+f_controls <- c('sexe', 'age_f', 'race_f', 'educ_f')
+n_controls <- c('age_n', 'educ_n')
+all_controls <- c(f_controls, n_controls)
+
+all_vars <-c (all_outcomes, all_controls, 'wgt')
+```
+
+```{r}
+data2004 <- data2004 %>%
+  filter(!if_all(all_of(all_outcomes), is.na)) %>%
+  select(all_of(all_vars))
+```
+
+```{r}
+data2004 %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "NAs") %>%
+  filter(NAs > 0)
+
+data2004 %>% filter(if_any(everything(), is.na))
+```
+
+On constate que les NAs sont résiduelles et concentrées sur quelques individus. On peut les imputer sans se préoccuper de leur effet sur les résultats (c'est-à-dire sans imputation multiple).
+
+```{r}
+data2004 %>% kNN(k=5, imp_var = FALSE)
+```
 
 # Résultats descriptifs
 
 ## Outcomes
 
 ```{r}
-close_vars_f <- paste0(close_vars, "_f")
-imp_vars_f <- paste0(imp_vars, "_f")
-agree_vars_f <- paste0(agree_vars, "_f")
-proud_vars_f <- paste0(proud_vars, "_f")
-
-all_vars = c(close_vars, imp_vars, agree_vars, proud_vars)
-all_vars_n <- paste0(all_vars, "_n")
-all_vars_f <- paste0(all_vars, "_f")
+# all_vars = c(q2_vars, q3_vars, q4_vars, q5_vars)
+# all_vars_n <- paste0(all_vars, "_n")
+# all_vars_f <- paste0(all_vars, "_f")
 ```
 
 ```{r}
 likert_table <- 
   list(
-    data2004 %>% tbl_likert(include = all_of(all_vars_f)),
+    data2004 %>% tbl_likert(include = all_of(f_outcomes)),
     tbl_wide_summary(
-      data2004|> mutate(across(all_of(all_vars_f), \(x) unclass(x))),
+      data2004|> mutate(across(all_of(f_outcomes), \(x) unclass(x))),
       statistic = c("{mean}", "{sd}", "{N_nonmiss}"),
       type = ~ "continuous",
-      include = all_of(all_vars_f),
+      include = all_of(f_outcomes),
       digits = ~ 1)) %>%
   tbl_merge(tab_spanner = FALSE) %>%
   as_gt(rownames_to_stub = TRUE) %>%
   
+  # Shortening of labels
+  fmt(columns = "label", fns = function(x) {
+    str_to_sentence( # Capitalize first letter
+      str_remove(x, "^How (close|important|proud) \\.\\.\\.") # Remove first characters
+    )}) %>%
   fmt(columns = "stat_3_2", fns = function(x) str_sub(x, 1, -3)) %>%
-  
-  tab_row_group(label = "How close do you feel to?", rows = which(.data$variable %in% close_vars_f), id = "close") %>%
-  tab_row_group(label = "How important do you think each of the following is?", rows = which(.data$variable %in% imp_vars_f), id = "imp") %>%
-  tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$variable %in% agree_vars_f), id = "agree") %>%
-  tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$variable %in% proud_vars_f), id = "proud") %>%
+
+  # Grouping of questions
+  tab_row_group(label = "How close do you feel to?", rows = which(.data$variable %in% q2_vars_f), id = "close") %>%
+  tab_row_group(label = "How important do you think each of the following is?", rows = which(.data$variable %in% q3_vars_f), id = "imp") %>%
+  tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$variable %in% q4_vars_f), id = "agree") %>%
+  tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$variable %in% q5_vars_f), id = "proud") %>%
   row_group_order(c("close", "imp", "agree", "proud")) %>%
-  
+
+  # Styling  
   tab_style(
     style = list(
       cell_fill(color = "lightgrey"),
@@ -551,7 +597,7 @@ likert_table
 
 ```{r include=FALSE}
 plot <- gglikert(data2004,
-                 include = all_of(all_vars_f),
+                 include = all_of(f_outcomes),
                  sort = "ascending") +
   scale_fill_brewer(palette = "RdYlBu")
 
@@ -560,35 +606,41 @@ ggsave("output/desc/likert_plot_2004.png", plot = plot, width = 10, height = 8, 
 
 ```{r include=FALSE}
 # Creating likert plots for each question
-p1 <- gglikert(data2004, include = clseusa_f, sort = "ascending", add_totals = FALSE) +
+p1 <- gglikert(data2004, include = all_of(q2_vars_f), sort = "ascending", add_totals = FALSE) +
+  # Does not work with q2_vars_f if it contains just one element
+  # Change to include = all_of(q2_vars_f) if additional variables are used
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) + 
   scale_fill_brewer(palette = "RdYlBu") + 
   ggtitle("How close do you feel to?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
 
-p2 <- gglikert(data2004, include = all_of(imp_vars_f), sort = "ascending", add_totals = FALSE) +
+p2 <- gglikert(data2004, include = all_of(q3_vars_f), sort = "ascending", add_totals = FALSE) +
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) + 
   scale_fill_brewer(palette = "RdYlBu") +
   ggtitle("How important do you think each of the following is?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
 
-p3 <- gglikert(data2004, include = all_of(proud_vars_f), sort = "ascending", add_totals = FALSE) + 
+p3 <- gglikert(data2004, include = all_of(q5_vars_f), sort = "ascending", add_totals = FALSE) + 
   scale_fill_brewer(palette = "RdYlBu") +
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) +
   ggtitle("How proud are you of America in each of the following?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
 
-p4 <- gglikert(data2004, include = all_of(agree_vars_f), sort = "ascending", add_totals = FALSE) + 
+p4 <- gglikert(data2004, include = all_of(q4_vars_f), sort = "ascending", add_totals = FALSE) + 
   scale_fill_brewer(palette = "RdYlBu") +
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) +
   ggtitle("How much do you agree or disagree with the following statements?") +
   theme(plot.title = element_text(hjust = 0.5))
 
 # Stacking the plots while controlling for their relative height
-plot <- grid.arrange(p1, p2, p3, p4, ncol = 1, heights = c(0.22, length(imp_vars_f)*0.11, length(proud_vars_f)*0.10, length(agree_vars_f)*0.13))
+plot <- grid.arrange(p1, p2, p3, p4, ncol = 1, heights = c(
+  min(0.22, length(q5_vars_f)*0.1), 
+  length(q3_vars_f)*0.11, 
+  length(q5_vars_f)*0.10, 
+  length(q4_vars_f)*0.13))
 
 # Adding a title
 title <- textGrob("Likert 2004", gp = gpar(fontsize = 16, fontface = "bold"))
@@ -615,9 +667,9 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
     
     if (identical(range, c(-1,1))) {
       scale_fill_gradient2(limit = c(-1,1), low = "#6D9EC1", mid = "white", high =  "#E46726", midpoint = 0)}
-    else if (identical(range, c(0,1))) {
-      scale_fill_gradient2(limit = c(0, 1), low = "white", high =  "#E46726")}
-
+  else if (identical(range, c(0,1))) {
+    scale_fill_gradient2(limit = c(0, 1), low = "white", high =  "#E46726")}
+  
   corrplot$theme$plot.title$hjust <- 0.5
   corrplot$theme$plot.title$size <- 12
   corrplot$theme$plot.subtitle$hjust <- 0.5
@@ -625,7 +677,7 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
   corrplot$theme$legend.key.width <- unit(0.3, "cm")
   corrplot$theme$legend.key.height <- unit(1, "null")
   corrplot$theme$legend.title <- element_blank()
-
+  
   ggsave(filename, plot = corrplot)
   
   corrplot$labels$title <- title
@@ -635,24 +687,17 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
 }
 ```
 
-Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE /
-FALSE). - Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale,
-dont l'opposition est essentiellement tirée par 3 variables (amchrstn,
-ambornin, amlived) - Avec scaling : 2 axes, potant 26 et 11% de
-l'inertie totale, dont l'opposition est tirée par une quinzaine de
-variables (dont les précédentes, dont l'effet est en quelque sorte
-dilué)
+Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE). - Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived) - Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
 
 ```{r}
 pca_data <- data2004 %>%
-  select(all_of(all_vars_n)) %>%
-  rename_with(~ str_remove(., "_n$")) %>% # Remove _n from variables names for cleaner outputs
-  na.omit()
+  select(all_of(c(n_outcomes, f_controls))) %>%
+  rename_with(~ str_remove(., "_n$")) # Remove _n from variables names for cleaner outputs
+
+pca_results <- PCA(pca_data, scale.unit = TRUE, quali.sup = f_controls, ncp = 10, graph = FALSE)
 ```
 
 ```{r}
-pca_results <- PCA(pca_data, scale.unit = TRUE, ncp = 10, graph = FALSE)
-
 # Résultats
 ## Histogramme de la contribution des axes à la variance totale
 screeplot <- fviz_screeplot(pca_results, addlabels = TRUE, ylim = c(0, 45), title = "") + theme_gray()
@@ -681,10 +726,10 @@ axis_tbl <- axis_df %>%
   tab_header("Contribution des variables à l'inertie des axes", subtitle = NULL, preheader = NULL) %>%
   tab_spanner(label = "Axes", columns = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), id = "axes") %>%
   data_color(method = "numeric", columns = !matches("Variables"), palette ="Oranges", direction = "column") %>%
-  tab_row_group(label = "How close do you feel to?", rows = which(.data$Variables %in% close_vars), id = "close") %>%
-  tab_row_group(label = "How important do you think each of the following is?", rows = which(.data$Variables %in% imp_vars), id = "imp") %>%
-  tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$Variables %in% agree_vars), id = "agree") %>%
-  tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$Variables %in% proud_vars), id = "proud") %>%
+  tab_row_group(label = "How close do you feel to?", rows = which(.data$Variables %in% q2_vars), id = "close") %>%
+  tab_row_group(label = "How important do you think each of the following is?", rows = which(.data$Variables %in% q3_vars), id = "imp") %>%
+  tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$Variables %in% q4_vars), id = "agree") %>%
+  tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$Variables %in% q5_vars), id = "proud") %>%
   row_group_order(c("close", "imp", "agree", "proud")) %>%
   tab_style(
     style = cell_text(align = "center"),
@@ -704,7 +749,7 @@ draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variable
 ## Avec à nouveau deux représentations possibles...
 ## Des corrplots
 draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcomes aux axes", "", "output/acp/corr_outc_axes_ACP.png", range = c(-1,1))
-# draw_corrplot(t(pca_results$quanti.sup$coord[, 1:3]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes_ACP.png", range = c(-1,1))
+draw_corrplot(t(pca_results$quali.sup$coord[, 1:5]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes_ACP.png", range = c(-1,1))
 ## Des projections sur les plans factoriels
 plot.PCA(pca_results, axes = c(1,2), choix = "var", select = "cos2 7", title = "Projection sur les axes 1 et 2")
 plot.PCA(pca_results, axes=c(1,3), choix="var", select = "cos2 7", title = "Projection sur les axes 1 et 3")
@@ -712,5 +757,5 @@ plot.PCA(pca_results, axes=c(2,3), choix="var", select = "cos2 7", title = "Proj
 
 ## Qualité de représentation des variables
 draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc_ACP.png", range = c(0,1))
-# draw_corrplot(t(pca_results$quanti.sup$cos2[, 1:3]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr_ACP.png", range = c(0,1))
+draw_corrplot(t(pca_results$quali.sup$cos2[, 1:5]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr_ACP.png", range = c(0,1))
 ```

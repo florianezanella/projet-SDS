@@ -3,6 +3,7 @@
 library(dplyr)
 library(haven)
 library(labelled)
+library(tidyr)
 
 ## Helpers
 library(stringr)
@@ -22,6 +23,9 @@ library(gridExtra)
 ## ACP
 library(factoextra)
 library(FactoMineR)
+
+## NAs
+library(VIM)
 
 # Répertoires
 if (!dir.exists("output")) {dir.create("output")}

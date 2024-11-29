@@ -1,54 +1,49 @@
 
 ```{r setup}
-# Data
-library(haven)
-library(labelled)
-library(dplyr)
-
-# Helpers
-library(stringr)
-
-# Tables
-library(gt)
-library(gtsummary)
-library(gtable)
-
-# Graphs
-library(ggplot2)
-library(ggstats)
-library(grid)
-library(gridExtra)
-
-# ACP
-library(factoextra)
-library(FactoMineR)
-library(ggcorrplot)
+source("dependencies.R")
 ```
 
 ```{r}
-data1996 <- read_dta("GSS1996.dta")
-data2004 <- read_dta("GSS2004.dta")
-data2014 <- read_dta("GSS2014.dta")
+# data1996 <- read_dta("data/GSS1996.dta")
+data2004 <- read_dta("data/GSS2004.dta")
+# data2014 <- read_dta("data/GSS2014.dta")
 ```
 
 # Recodages 2004
 
 ## Outcomes
 
-Les données proviennent du module Identité Nationale, pp.96-109 du questionnaire disponible ici :
-https://gss.norc.org/content/dam/gss/get-documentation/pdf/quex/2004%20GSS%20V6.pdf
+Les données proviennent du module Identité Nationale, pp.96-109 du
+questionnaire disponible ici :
+<https://gss.norc.org/content/dam/gss/get-documentation/pdf/quex/2004%20GSS%20V6.pdf>
 
 Ce module a seulement été administré à 1215 personnes.
 
-Une difficulté est que les variables retournées par haven sont mixtes : numériques pour les réponses effectives, textuelles pour les types de NAs. Or, il serait dommage d'agréger directement les NAs, car certaines correspondes à des réponses effectives, avec la modalité can't choose. Il faut plusieurs conversions successives pour bien récupérer cette dernière. On la traite comme une modalité neutre, les échelles de Likert à 4 modalités passant ainsi à 5. On en profite pour standardiser les valeurs en les centrant sur 0, ainsi que les labels. On obtient deux nouvelles variables : l'une numérique correspondant à un score, l'autre factorielle.
+Une difficulté est que les variables retournées par haven sont mixtes :
+numériques pour les réponses effectives, textuelles pour les types de
+NAs. Or, il serait dommage d'agréger directement les NAs, car certaines
+correspondes à des réponses effectives, avec la modalité can't choose.
+Il faut plusieurs conversions successives pour bien récupérer cette
+dernière. On la traite comme une modalité neutre, les échelles de Likert
+à 4 modalités passant ainsi à 5. On en profite pour standardiser les
+valeurs en les centrant sur 0, ainsi que les labels. On obtient deux
+nouvelles variables : l'une numérique correspondant à un score, l'autre
+factorielle.
 
-Q.2 - How close do you feel to... 
-a. Your town or city
-b. Your state
-c. America
-d. North America
+### Q.2
 
-B&M retiennent n'utilisent pas les items a (clsetown), b (clsestat) et d (clsenoam).
+How close do you feel to...
+
+a.  Your town or city
+
+b.  Your state
+
+c.  America
+
+d.  North America
+
+B&M retiennent n'utilisent pas les items a (clsetown), b (clsestat) et d
+(clsenoam).
 
 ```{r}
 # Variables
@@ -80,15 +75,58 @@ data2004 <- data2004 %>%
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-Q.3 - Some people say the following things are important for being truly American. Others say they are not important. How important do you think each of the following is?
-a. To have been born in America
-b. To have American citisenship
-c. To have lived in America for most of one's life
-d. To be able to speak English
-e. To be a Christian
-f. To respect America's political institutions and laws
-g. To feel American
-h. To have American ancestry
+```{r eval = FALSE}
+# Consistency check
+sum(as_factor(data2004$clseusa) == 'CANT CHOOSE')
+sum(data2004$clseusa_f == 'Can\'t choose', na.rm = TRUE)
+sum(data2004$clseusa_n == 0, na.rm = TRUE)
+
+sum(as_factor(data2004$clseusa) %in% c('iap', 'na'))
+sum(is.na(data2004$clseusa_f))
+sum(is.na(data2004$clseusa_n))
+```
+
+```{r}
+# Labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    clseusa_n = 'How close ... America') %>%
+  set_variable_labels(
+    clseusa_f = 'How close ... America')
+```
+
+```{r eval = FALSE}
+# Additional labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    clsetown_n = 'How close ... your town or city',
+    clsestat_n = 'How close ... your state',
+    clsenoam_n = 'How close ... North America') %>%
+  set_variable_labels(
+    clsetown_f = 'How close ... your town or city',
+    clsestat_f = 'How close ... your state',
+    clsenoam_f = 'How close ... North America')
+```
+
+### Q.3
+
+Some people say the following things are important for being truly
+American. Others say they are not important. How important do you think
+each of the following is?
+
+a.  To have been born in America
+
+b.  To have American citisenship
+
+c.  To have lived in America for most of one's life
+
+d.  To be able to speak English
+
+e.  To be a Christian
+
+f.  To respect America's political institutions and laws
+
+g.  To feel American h. To have American ancestry
 
 B&M n'utilisent pas l'a modalité l'item h (amancstr).
 
@@ -122,14 +160,70 @@ data2004 <- data2004 %>%
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-Q.4 / How much do you agree or disagree with the following statements?
-a. I would rather be a citizen of America than of any other country in the world
-b. There are some things about America today that make me feel ashamed of America
-c. The world would be a better place if people from other countries were more like the Americans
-d. Generally speaking, America is a better country than most other countries
-e. People should support their country even if the country is in the wrong.
-f. When my country does well in international sports, it makes me proud to be American
-g. I am often less proud of America than I would like to be
+```{r eval = FALSE}
+# Consistency check
+sum(as_factor(data2004$ifwrong) %in% c('CANT CHOOSE', 'NEITHER AGREE NOR DISAGREE'))
+sum(data2004$ifwrong_f == 'Can\'t choose', na.rm = TRUE)
+sum(data2004$ifwrong_n == 0, na.rm = TRUE)
+
+sum(as_factor(data2004$ifwrong) %in% c('iap', 'na'))
+sum(is.na(data2004$ifwrong_f))
+sum(is.na(data2004$ifwrong_n))
+```
+
+```{r}
+# Labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    ambornin_n = 'How important ... to have been born in America',
+    amcit_n = 'How important ... to have American citizenship',
+    amlived_n = 'How important ... to have lived in America for most of one\'s life',
+    amenglsh_n = 'How important ... to be able to speak English',
+    amchrstn_n = 'How important ... to be a Christian',
+    amgovt_n = 'How important ... to respect America\'s political institutions and laws',
+    amfeel_n = 'How important ... to feel American') %>%
+  set_variable_labels(
+    ambornin_f = 'How important ... to have been born in America',
+    amcit_f = 'How important ... to have American citizenship',
+    amlived_f = 'How important ... to have lived in America for most of one\'s life',
+    amenglsh_f = 'How important ... to be able to speak English',
+    amchrstn_f = 'How important ... to be a Christian',
+    amgovt_f = 'How important ... to respect America\'s political institutions and laws',
+    amfeel_f = 'How important ... to feel American')
+```
+
+```{r eval = FALSE}
+# Additional labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    amancstr_n = 'To have American ancestry') %>%
+  set_variable_labels(
+    amancstr_f = 'To have American ancestry')
+```
+
+### Q.4
+
+How much do you agree or disagree with the following statements?
+
+a.  I would rather be a citizen of America than of any other country in
+    the world
+
+b.  There are some things about America today that make me feel ashamed
+    of America
+
+c.  The world would be a better place if people from other countries
+    were more like the Americans
+
+d.  Generally speaking, America is a better country than most other
+    countries
+
+e.  People should support their country even if the country is in the
+    wrong.
+
+f.  When my country does well in international sports, it makes me proud
+    to be American
+
+g.  I am often less proud of America than I would like to be
 
 B&M n'utilisent pas les items f (amsports) et g (lessprd).
 
@@ -164,17 +258,68 @@ data2004 <- data2004 %>%
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-Q.5 / How proud are you of America in each of the following?
-a. The way democracy works
-b. Its political influence in the world
-c. America's economic achievements
-d. Its social security system
-e. Its scientific and technological achievements
-f. Its achievements in sports
-g. Its achievements in the arts & literature
-h. America's armed forces'
-i. Its history
-j. Its fair and equal treatment of all groups in society
+```{r eval = FALSE}
+# Consistency check
+sum(as_factor(data2004$ambornin) == 'CANT CHOOSE')
+sum(data2004$ambornin_f == 'Can\'t choose', na.rm = TRUE)
+sum(data2004$ambornin_n == 0, na.rm = TRUE)
+
+sum(as_factor(data2004$ambornin) %in% c('iap', 'na'))
+sum(is.na(data2004$ambornin_f))
+sum(is.na(data2004$ambornin_n))
+```
+
+```{r}
+# Labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    amcitizn_n = 'I would rather be a citizen of America than of any other country in the world',
+    belikeus_n = 'The world would be a better place if people from other countries were more like the Americans',
+    ambetter_n = 'Generally speaking, America is a better country than most other countries',
+    ifwrong_n = 'People should support their country even if their country is in the wrong',
+    amshamed_n = 'There are some things about America today that make me feel ashamed of America') %>%
+  set_variable_labels(
+    amcitizn_f = 'I would rather be a citizen of America than of any other country in the world',
+    belikeus_f = 'The world would be a better place if people from other countries were more like the Americans',
+    ambetter_f = 'Generally speaking, America is a better country than most other countries',
+    ifwrong_f = 'People should support their country even if their country is in the wrong',
+    amshamed_f = 'There are some things about America today that make me feel ashamed of America')
+```
+
+```{r eval = FALSE}
+# Additional labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    amsports_n = 'When my country does well in international sports, it makes me proud to be American',
+    lessprd_n = 'I am often less proud of America than I would like to be') %>%
+  set_variable_labels(
+    amsports_f = 'When my country does well in international sports, it makes me proud to be American',
+    lessprd_f = 'I am often less proud of America than I would like to be')
+```
+
+### Q.5
+
+How proud are you of America in each of the following?
+
+a.  The way democracy works
+
+b.  Its political influence in the world
+
+c.  America's economic achievements
+
+d.  Its social security system
+
+e.  Its scientific and technological achievements
+
+f.  Its achievements in sports
+
+g.  Its achievements in the arts & literature
+
+h.  America's armed forces
+
+i.  Its history
+
+j.  Its fair and equal treatment of all groups in society
 
 B&M utilisent tous les items.
 
@@ -207,36 +352,8 @@ data2004 <- data2004 %>%
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
-```{r eval=FALSE}
-# Consistency checks
-# Q2
-sum(as_factor(data2004$clseusa) == 'CANT CHOOSE')
-sum(data2004$clseusa_f == 'Can\'t choose', na.rm = TRUE)
-sum(data2004$clseusa_n == 0, na.rm = TRUE)
-
-sum(as_factor(data2004$clseusa) %in% c('iap', 'na'))
-sum(is.na(data2004$clseusa_f))
-sum(is.na(data2004$clseusa_n))
-
-# Q3
-sum(as_factor(data2004$ifwrong) %in% c('CANT CHOOSE', 'NEITHER AGREE NOR DISAGREE'))
-sum(data2004$ifwrong_f == 'Can\'t choose', na.rm = TRUE)
-sum(data2004$ifwrong_n == 0, na.rm = TRUE)
-
-sum(as_factor(data2004$ifwrong) %in% c('iap', 'na'))
-sum(is.na(data2004$ifwrong_f))
-sum(is.na(data2004$ifwrong_n))
-
-# Q4
-sum(as_factor(data2004$ambornin) == 'CANT CHOOSE')
-sum(data2004$ambornin_f == 'Can\'t choose', na.rm = TRUE)
-sum(data2004$ambornin_n == 0, na.rm = TRUE)
-
-sum(as_factor(data2004$ambornin) %in% c('iap', 'na'))
-sum(is.na(data2004$ambornin_f))
-sum(is.na(data2004$ambornin_n))
-
-# Q5
+```{r eval = FALSE}
+# Consistency check
 sum(as_factor(data2004$prouddem) == 'CANT CHOOSE')
 sum(data2004$prouddem_f == 'Can\'t choose', na.rm = TRUE)
 sum(data2004$prouddem_n == 0, na.rm = TRUE)
@@ -247,9 +364,9 @@ sum(is.na(data2004$prouddem_n))
 ```
 
 ```{r}
+# Labels
 data2004 <- data2004 %>%
   set_variable_labels(
-    clseusa_n = 'How close ... America',
     prouddem_n = 'How proud ... the way democracy works',
     proudpol_n = 'How proud ... its political influence in the world',
     proudeco_n = 'How proud ... America\'s economic achievements',
@@ -259,23 +376,8 @@ data2004 <- data2004 %>%
     proudart_n = 'How proud ... its achievements in the arts & literature',
     proudmil_n = 'How proud ... America\'s armed forces',
     proudhis_n = 'How proud ... its history',
-    proudgrp_n = 'How proud ... its fair and equal treatment of all groups in society',
-    ambornin_n = 'How important ... to have been born in America',
-    amcit_n = 'How important ... to have American citizenship',
-    amlived_n = 'How important ... to have lived in America for most of one\'s life',
-    amenglsh_n = 'How important ... to be able to speak English',
-    amchrstn_n = 'How important ... to be a Christian',
-    amgovt_n = 'How important ... to respect America\'s political institutions and laws',
-    amfeel_n = 'How important ... to feel American',
-    amcitizn_n = 'I would rather be a citizen of America than of any other country in the world',
-    belikeus_n = 'The world would be a better place if people from other countries were more like the Americans',
-    ambetter_n = 'Generally speaking, America is a better country than most other countries',
-    ifwrong_n = 'People should support their country even if their country is in the wrong',
-    amshamed_n = 'There are some things about America today that make me feel ashamed of America') 
-
-data2004 <- data2004 %>%
+    proudgrp_n = 'How proud ... its fair and equal treatment of all groups in society') %>% 
   set_variable_labels(
-    clseusa_f = 'How close ... to America',
     prouddem_f = 'How proud ... the way democracy works',
     proudpol_f = 'How proud ... its political influence in the world',
     proudeco_f = 'How proud ... America\'s economic achievements',
@@ -285,57 +387,121 @@ data2004 <- data2004 %>%
     proudart_f = 'How proud ... its achievements in the arts & literature',
     proudmil_f = 'How proud ... America\'s armed forces',
     proudhis_f = 'How proud ... its history',
-    proudgrp_f = 'How proud ... its fair and equal treatment of all groups in society',
-    ambornin_f = 'How important ... to have been born in America',
-    amcit_f = 'How important ... to have American citizenship',
-    amlived_f = 'How important ... to have lived in America for most of one\'s life',
-    amenglsh_f = 'How important ... to be able to speak English',
-    amchrstn_f = 'How important ... to be a Christian',
-    amgovt_f = 'How important ... to respect America\'s political institutions and laws',
-    amfeel_f = 'How important ... to feel American',
-    amcitizn_f = 'I would rather be a citizen of America than of any other country in the world',
-    belikeus_f = 'The world would be a better place if people from other countries were more like the Americans',
-    ambetter_f = 'Generally speaking, America is a better country than most other countries',
-    ifwrong_f = 'People should support their country even if their country is in the wrong',
-    amshamed_f = 'There are some things about America today that make me feel ashamed of America')
-```
-
-```{r eval = FALSE}
-data2004 <- data2004 %>%
-  set_variable_labels(
-    clsetown_n = 'How close ... your town or city',
-    clsestat_n = 'How close ... your state',
-    clsenoam_n = 'How close ... North America',
-    amancstr_n = 'To have American ancestry',
-    amsports_n = 'When my country does well in international sports, it makes me proud to be American',
-    lessprd_n = 'I am often less proud of America than I would like to be')
-
-data2004 <- data2004 %>%
-  set_variable_labels(
-    clsetown_f = 'How close ... your town or city',
-    clsestat_f = 'How close ... your state',
-    clsenoam_f = 'How close ... North America',
-    amancstr_f = 'To have American ancestry',
-    amsports_f = 'When my country does well in international sports, it makes me proud to be American',
-    lessprd_f = 'I am often less proud of America than I would like to be')
+    proudgrp_f = 'How proud ... its fair and equal treatment of all groups in society')
 ```
 
 ## Poids de sondage
 
 ```{r}
-# Weight variable
 data2004 <- data2004 %>%
   mutate(wgt = as.numeric(wtssnr))
 ```
 
 ## Contrôles
 
+Variable pour l'âge : age
 
+### Genre
 
+-   Recoding gender gen male=(sex==1) label define male 0 "Female" 1
+    "Male" label values male male
 
+### Race
 
+-   Recoding race gen race_hisp=(ethnic==17 \| ethnic==22 \| ethnic ==
+    38) recode race (3=4), gen(racer) replace racer=3 if race_hisp==1
+        label define racer 1 "White" 2 "Black" 3 "Hisp" 4 "Other" label
+        values racer racer
+
+### Education
+
+-   Recoding education gen educr=educ\<12 replace educr=2 if educ\>=12 &
+    educ\<16 replace educr=3 if educ==16 replace educr=4 if educ\>16
+    replace educr=. if inlist(educ,98,99) label define educr 1 "Less
+    than HS" 2 "HS or some college" 3 "BA" 4 "Advanced degree" label
+    values educr educr
+
+### Religion
+
+-   Recoding religious denomination gen reltrad=0 replace reltrad=1 if
+    denom==20 \| denom==21 \| (denom==10 & race==2) \| (denom==11 &
+    race==2) \| (denom==18 & race==2) \| (denom==28 & race==2) \|
+    denom==12 \| denom==13 \| (denom==15 & race==2) \| (denom==23 &
+    race==2) \| (denom==14 & race==2) replace reltrad=1 if other==15 \|
+    other==14 \| other==128 \| other==37 \| other==38 \| other==7 \|
+    other==88 \| other==98 \| other==56 \| other==104 \| (other==93 &
+    race==2) \| other==103 \| other==133 \| other==78 \| other==79 \|
+    other==21 \| other==85 \| other==86 \| other==87 replace reltrad=2
+    if (denom==10 & race!=2) \| (denom==18 & race!=2) \| denom==32 \|
+    (denom==15 & race!=2) \| denom==34 \| (denom==23 & race!=2) \|
+    denom==42 \| (denom==14 & race!=2) \| denom==33 replace reltrad=2 if
+    other==10 \| other==111 \| other==107 \| other==138 \| other==12 \|
+    other==109 \| other==20 \| other==22 \| other==132 \| other==110 \|
+    other==122 \| other==102 \| other==135 \| other==108 \| other==29 \|
+    other==9 \| other==125 \| other==28\| other==31 \| other==32 \|
+    other==26 \| other==101 \| other==36 \| other==35 \| other==34 \|
+    other==127 \| other==121 \| other==5 \| other==116 \| other==39 \|
+    other==41 \| other==42 \| other==43 \| other==2 \| other==91 \|
+    other==45 \| other==47 \| other==112 \| other==120 \| other==139 \|
+    other==124 \| other==51 \| other==53 \| other==13 \| other==16 \|
+    other==52 \| other==100 \| other==90 \| other==18 \| other==55 \|
+    other==24 \| other==3 \| other==134 \| other==146 \| other==129 \|
+    other==131 \| other==63 \| other==115 \| (other==93 & race!=2) \|
+    other==117 \| other==92 \| other==65 \| other==6 \| other==27 \|
+    other==97 \| other==68 \| other==66 \| other==67 \| other==69 \|
+    other==140 \| other==57 \| other==133 \| other==76 \| other==77 \|
+    other==94 \| other==106 \| other==118 \| other==83 \| other==84 \|
+    (denom==70 & attend\>=4 & attend!=9) replace reltrad=3 if (denom==11
+    & race!=2) \| denom==30 \| denom==50 \| denom==35 \| denom==31 \|
+    denom==38 \| (denom==28 & race!=2) \| denom==40 \| denom==48 \|
+    denom==43 \| denom==22 \| denom==41 replace reltrad=3 if other==99
+    \| other==19 \| other==25 \| other==40 \| other==44 \| other==46 \|
+    other==49 \| other==48 \| other==50 \| other==54 \| other==89 \|
+    other==1 \| other==105 \| other==8 \| other==70 \| other==71 \|
+    other==73 \| other==72 \| other==148 \| other==23 \| other==119 \|
+    other==81 \| other==96 replace reltrad=7 if other==30 \| other==33
+    \| other==145 \| other==114 \| other==58 \| other==62 \| other==59
+    \| other==60 \| other==61 \| other==64 \| other==130 \| other==113
+    replace reltrad=7 if other==29 \| other==17 \| other==75 \|
+    other==136 \| other==141 \| other==74 \| other==11 \| other==80 \|
+    other==82 \| other==95 replace reltrad=4 if relig==2 \| other==123
+    replace reltrad=5 if relig==3 replace reltrad=6 if relig==4 replace
+    reltrad=7 if relig==5 replace reltrad=7 if reltrad==0 recode reltrad
+    (3=1) (1=3) label define reltrad 1 "Mainline Protestant" 2
+    "Evangelical Protestant" 3 "Black Protestant" 4 "Catholic" 5
+    "Jewish" 6 "None" 7 "Other" label values reltrad reltrad
+
+-   Recoding religiosity gen religstr=reliten recode religstr (2/4=0)
+    (8/9=.)
+
+### Revenus
+
+-   Converting income from 1986 to 2004 dollars (based on
+    <http://data.bls.gov/cgi-bin/cpicalc.pl>) gen
+    realinc2004=realinc\*1.72 gen lnrealinc2004=ln(realinc2004)
+
+### Identification partisane
+
+-   Recoding party identification recode partyid (0=1) (1/2=2) (3=3)
+    (4/5=4) (6=5) (7=6), gen(partyidr) recode partyidr (6=.) label
+    define partyidr 1 "Strong Democrat" 2 "Democrat" 3 "Independent" 4
+    "Republican" 5 "Strong Republican" 6 "Other" label values partyidr
+    partyidr
+
+### Lieu de naissance
+
+-   Recoding birth in the U.S. gen bornnot=born recode bornnot (1=0)
+    (2=1)
+
+### Région
+
+-   Recoding region recode region (1/2=1) (3/4=2) (5/7=3) (8=4) (9=5),
+    gen(regionr) label define regionr 1 "Northeast" 2 "Midwest" 3
+    "South" 4 "Mountain" 5 "Pacific" label values regionr regionr
 
 # Résultats descriptifs
+
+## Outcomes
 
 ```{r}
 close_vars_f <- paste0(close_vars, "_f")
@@ -432,6 +598,8 @@ plot <- gtable_add_grob(plot, title, t = 1, l = 1, r = ncol(plot))
 ggsave("output/desc/likert_plots_2004.png", plot = plot, width = 10, height = 15, dpi = 300)
 ```
 
+## Population
+
 # ACP
 
 ```{r}
@@ -467,9 +635,13 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
 }
 ```
 
-Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE).
-- Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived)
-- Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
+Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE /
+FALSE). - Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale,
+dont l'opposition est essentiellement tirée par 3 variables (amchrstn,
+ambornin, amlived) - Avec scaling : 2 axes, potant 26 et 11% de
+l'inertie totale, dont l'opposition est tirée par une quinzaine de
+variables (dont les précédentes, dont l'effet est en quelque sorte
+dilué)
 
 ```{r}
 pca_data <- data2004 %>%
@@ -542,4 +714,3 @@ plot.PCA(pca_results, axes=c(2,3), choix="var", select = "cos2 7", title = "Proj
 draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc_ACP.png", range = c(0,1))
 # draw_corrplot(t(pca_results$quanti.sup$cos2[, 1:3]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr_ACP.png", range = c(0,1))
 ```
-

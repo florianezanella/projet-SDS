@@ -494,7 +494,25 @@ sum(is.na(data2004$educ_f))
 
 ### Lieu de naissance
 
--   Recoding birth in the U.S. gen bornnot=born recode bornnot (1=0) (2=1)
+```{r}
+data2004 <- data2004 %>%
+  mutate(born_usa = factor(
+      case_when(
+        born == 1 ~ 0,
+        born ==  2 ~ 1),
+      levels = 0:1, 
+      labels = c('Yes', 'No'))) %>%
+  set_variable_labels(born_usa = "Was born in this country")
+```
+
+```{r eval=FALSE}
+str(data2004$born)
+hist(data2004$born)
+plot(data2004$born_usa)
+
+sum(is.na(data2004$born))
+sum(is.na(data2004$born_usa))
+```
 
 ### Région
 
@@ -515,7 +533,7 @@ f_outcomes <- paste0(base_outcomes, "_f")
 n_outcomes <- paste0(base_outcomes, "_n")
 all_outcomes <- c(f_outcomes, n_outcomes)
 
-f_controls <- c('sexe', 'age_f', 'race_f', 'educ_f')
+f_controls <- c('sexe', 'age_f', 'race_f', 'educ_f', 'born_usa')
 n_controls <- c('age_n', 'educ_n')
 all_controls <- c(f_controls, n_controls)
 
@@ -668,7 +686,7 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
     if (identical(range, c(-1,1))) {
       scale_fill_gradient2(limit = c(-1,1), low = "#6D9EC1", mid = "white", high =  "#E46726", midpoint = 0)}
   else if (identical(range, c(0,1))) {
-    scale_fill_gradient2(limit = c(0, 1), low = "white", high =  "#E46726")}
+    scale_fill_gradient2(limit = c(0, 1), low = "white", high = "#E46726")}
   
   corrplot$theme$plot.title$hjust <- 0.5
   corrplot$theme$plot.title$size <- 12
@@ -713,7 +731,7 @@ screeplot$theme$plot.title$hjust <- 0.5
 screeplot
 ggsave("output/acp/screeplot_ACP.png", plot = screeplot, width = 10, height = 6, units = "in", dpi = 300)
 
-## Contribution des variables aux axes (comportements électoraux seulement)
+## Contribution des variables aux axes
 ## Correspond à la qualité de représentation des variables (= cos2) normalisée entre 1 et 100
 ## Présentable à l'aide d'un tableau...
 coeffs <- pca_results$var$contrib
@@ -751,9 +769,32 @@ draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variable
 draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcomes aux axes", "", "output/acp/corr_outc_axes_ACP.png", range = c(-1,1))
 draw_corrplot(t(pca_results$quali.sup$coord[, 1:5]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes_ACP.png", range = c(-1,1))
 ## Des projections sur les plans factoriels
-plot.PCA(pca_results, axes = c(1,2), choix = "var", select = "cos2 7", title = "Projection sur les axes 1 et 2")
-plot.PCA(pca_results, axes=c(1,3), choix="var", select = "cos2 7", title = "Projection sur les axes 1 et 3")
-plot.PCA(pca_results, axes=c(2,3), choix="var", select = "cos2 7", title = "Projection sur les axes 2 et 3")
+plot.PCA(pca_results, 
+         axes = c(1,2), 
+         choix = "var", 
+         select = "contrib 8", 
+         habillage = "contrib",
+         title = "Projection des variables sur les axes 1 et 2", 
+         graph.type = 'ggplot') +
+  scale_color_gradient(name = "Contrib. (%)", 
+                       low = "#6D9EC1", high = "#E46726") +
+  theme_gray() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot.PCA(pca_results, 
+         axes = c(1,2), # project on axes 1 and 2
+         choix = "ind", # project individuals
+         select = "none", # draw all individuals
+         unselect = 0.35, # add transparency to the points
+         habillage = "contrib", # add a coloration depending on contrib
+         label = "none", # do not display individuals' id
+         invisible = "quali", # do not display categorical controls
+         title = "Projection des individus les axes 1 et 2", 
+         graph.type = 'ggplot') +
+  scale_color_gradient(name = "Contrib. (%)", 
+                       low = "#6D9EC1", high = "#E46726") +
+  theme_gray() +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ## Qualité de représentation des variables
 draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc_ACP.png", range = c(0,1))

@@ -705,22 +705,35 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
     tl.cex = 8) +
     
     if (identical(range, c(-1,1))) {
-      scale_fill_gradient2(limit = c(-1,1), low = "#6D9EC1", mid = "white", high =  "#E46726", midpoint = 0)}
+      scale_fill_gradient2(limit = c(-1,1), 
+                           low = "#6D9EC1", 
+                           mid = "white", 
+                           high =  "#E46726", 
+                           midpoint = 0, 
+                           oob = scales::oob_squish)}
   else if (identical(range, c(0,1))) {
-    scale_fill_gradient2(limit = c(0, 1), low = "white", high = "#E46726")}
+    scale_fill_gradient2(limit = c(0, 1), 
+                         low = "white", 
+                         high = "#E46726", 
+                         oob = scales::oob_squish)}
   
-  corrplot$theme$plot.title$hjust <- 0.5
-  corrplot$theme$plot.title$size <- 12
-  corrplot$theme$plot.subtitle$hjust <- 0.5
-  corrplot$theme$plot.subtitle$size <- 12
-  corrplot$theme$legend.key.width <- unit(0.3, "cm")
-  corrplot$theme$legend.key.height <- unit(1, "null")
-  corrplot$theme$legend.title <- element_blank()
+  corrplot <- corrplot + theme(
+    legend.title = element_blank(),
+    legend.key.width = unit(0.3, "cm"),
+    legend.key.height = unit(1, "null"))
   
   ggsave(filename, plot = corrplot)
   
-  corrplot$labels$title <- title
-  corrplot$labels$subtitle <- subtitle
+  # On ajoute titres et sous-titres pour les graphs affichés
+  corrplot <- corrplot + 
+    ggtitle(title) +
+    theme(plot.title = element_text(hjust = 0.5, size = 12))
+  
+  if (subtitle != "") {
+    corrplot <- corrplot + 
+      labs(subtitle = subtitle) + 
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
+  }
   
   print(corrplot)
 }
@@ -781,7 +794,7 @@ draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcome
 draw_corrplot(t(pca_results$quali.sup$coord[, 1:5]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes.png", range = c(-1,1))
 ## Des projections sur les plans factoriels
 proj_var <- fviz_pca_var(pca_results, 
-             axes = c(1, 2), 
+             axes = c(1, 2),
              select.var = list(contrib = 12),
              col.circle = '#636363',
              col.var = "contrib",
@@ -789,9 +802,11 @@ proj_var <- fviz_pca_var(pca_results,
              title = "Projection des variables sur les axes 1 et 2", 
              repel = TRUE) + 
   theme_gray() +
-  geom_hline(yintercept = 0, color = "#636363", linetype = "dashed") +
-  geom_vline(xintercept = 0, color = "#636363", linetype = "dashed") +
   theme(plot.title = element_text(hjust = 0.5))
+proj_var$layers <- proj_var$layers[-c(4, 5)] # removing original hline and vline
+proj_var <- proj_var +
+  geom_hline(yintercept = 0, color = "#636363", alpha = 0.5, linetype = "twodash") +
+  geom_vline(xintercept = 0, color = "#636363", alpha = 0.5, linetype = "twodash")
 proj_var
 ggsave("output/acp/proj_var.png", plot = proj_var)
 
@@ -800,15 +815,17 @@ proj_ind <- fviz_pca_ind(pca_results,
              col.ind = "contrib",  # Color individuals based on contribution
              pointshape = 16,  # Use solid points
              alpha.ind = 0.7,  # Transparency for points
-             title = "Projection des individus les axes 1 et 2", 
+             title = "Projection des individus sur les axes 1 et 2", 
              label = "none",  # Do not display individual labels
              repel = TRUE) +  # Avoid overlapping labels
-  theme_gray() + 
-  geom_hline(yintercept = 0, color = "#636363", linetype = "dashed") +
-  geom_vline(xintercept = 0, color = "#636363", linetype = "dashed") +
+  theme_gray() +
+  theme(plot.title = element_text(hjust = 0.5)) +
   scale_color_gradient(name = "Contrib. (%)", 
-                       low = "cornflowerblue", high = "#E46726") +
-    theme(plot.title = element_text(hjust = 0.5))
+                       low = "cornflowerblue", high = "#E46726")
+proj_ind$layers <- proj_ind$layers[-c(2, 3)] # removing original hline and vline
+proj_ind <- proj_ind +
+  geom_hline(yintercept = 0, color = "#636363", linetype = "twodash") +
+  geom_vline(xintercept = 0, color = "#636363", linetype = "twodash")
 proj_ind
 ggsave("output/acp/proj_ind.png", plot = proj_ind)
 

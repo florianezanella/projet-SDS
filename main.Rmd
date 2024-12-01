@@ -21,6 +21,11 @@ Ce module a seulement été administré à 1215 personnes.
 
 Une difficulté est que les variables retournées par haven sont mixtes : numériques pour les réponses effectives, textuelles pour les types de NAs. Or, il serait dommage d'agréger directement les NAs, car certaines correspondes à des réponses effectives, avec la modalité can't choose. Il faut plusieurs conversions successives pour bien récupérer cette dernière. On la traite comme une modalité neutre, les échelles de Likert à 4 modalités passant ainsi à 5. On en profite pour standardiser les valeurs en les centrant sur 0, ainsi que les labels. On obtient deux nouvelles variables : l'une numérique correspondant à un score, l'autre factorielle.
 
+```{r}
+mods <- c(-2:2)
+# lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much')
+```
+
 ### Q.2
 
 How close do you feel to...
@@ -51,22 +56,26 @@ data2004 <- data2004 %>%
   )) %>%
   mutate(across(all_of(q2_vars), 
                 ~ case_when(
-                  . == 'VERY CLOSE' ~ 2,
-                  . == 'close' ~ 1,
-                  . == 'CANT CHOOSE' ~ 0,
-                  . == 'NOT VERY CLOSE' ~ -1,
-                  . == 'NOT CLOSE AT ALL' ~ -2,
+                  . == 'VERY CLOSE' ~ mods[5],
+                  . == 'close' ~ mods[4],
+                  . == 'CANT CHOOSE' ~ mods[3],
+                  . == 'NOT VERY CLOSE' ~ mods[2],
+                  . == 'NOT CLOSE AT ALL' ~ mods[1],
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
   mutate(across(all_of(q2_vars_n), 
                 ~ factor(.,
-                         levels = -2:2,
+                         levels = mods,
                          labels = q2_lbls),
                 .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
 ```
 
 ```{r eval=FALSE}
-# Consistency check
+# Consistency checks
+summary(data2004$clseusa)
+hist(data2004$clseusa_n)
+summary(data2004$clseusa_f)
+
 sum(as_factor(data2004$clseusa) == 'CANT CHOOSE')
 sum(data2004$clseusa_f == 'Can\'t choose', na.rm = TRUE)
 sum(data2004$clseusa_n == 0, na.rm = TRUE)
@@ -134,11 +143,11 @@ data2004 <- data2004 %>%
   )) %>%
   mutate(across(all_of(q3_vars), 
                 ~ case_when(
-                  . == 'VERY IMPORTANT' ~ 2,
-                  . == 'FAIRLY IMPORTANT' ~ 1,
-                  . == 'NOT VERY IMPORTANT' ~ -1,
-                  . == 'NOT IMPORTANT AT ALL' ~ -2,
-                  . == 'CANT CHOOSE' ~ 0,
+                  . == 'VERY IMPORTANT' ~ mods[5],
+                  . == 'FAIRLY IMPORTANT' ~ mods[4],
+                  . == 'NOT VERY IMPORTANT' ~ mods[2],
+                  . == 'NOT IMPORTANT AT ALL' ~ mods[1],
+                  . == 'CANT CHOOSE' ~ mods[3],
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
   mutate(across(all_of(q3_vars_n), 
@@ -225,12 +234,12 @@ data2004 <- data2004 %>%
   )) %>%
   mutate(across(all_of(q4_vars), 
                 ~ case_when(
-                  . == 'STRONGLY AGREE' ~ 2,
-                  . == 'agree' ~ 1,
-                  . == 'NEITHER AGREE NOR DISAGREE' ~ 0,
-                  . == 'disagree' ~ -1,
-                  . == 'STRONGLY DISAGREE' ~ -2,
-                  . == 'CANT CHOOSE' ~ 0,
+                  . == 'STRONGLY AGREE' ~ mods[5],
+                  . == 'agree' ~ mods[4],
+                  . == 'NEITHER AGREE NOR DISAGREE' ~ mods[3],
+                  . == 'disagree' ~ mods[2],
+                  . == 'STRONGLY DISAGREE' ~ mods[1],
+                  . == 'CANT CHOOSE' ~ mods[3],
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
   mutate(across(all_of(q4_vars_n), 
@@ -320,11 +329,11 @@ data2004 <- data2004 %>%
   )) %>%
   mutate(across(all_of(q5_vars), 
                 ~ case_when(
-                  . == 'VERY PROUD' ~ 2,
-                  . == 'SOMEWHAT PROUD' ~ 1,
-                  . == 'NOT VERY PROUD' ~ -1,
-                  . == 'NOT PROUD AT ALL' ~ -2,
-                  . == 'CANT CHOOSE' ~ 0,
+                  . == 'VERY PROUD' ~ mods[5],
+                  . == 'SOMEWHAT PROUD' ~ mods[4],
+                  . == 'NOT VERY PROUD' ~ mods[2],
+                  . == 'NOT PROUD AT ALL' ~ mods[1],
+                  . == 'CANT CHOOSE' ~ mods[3],
                   TRUE ~ NA_real_),
                 .names = '{.col}_n')) %>%
   mutate(across(all_of(q5_vars_n), 
@@ -557,19 +566,16 @@ data2004 %>% filter(if_any(everything(), is.na))
 
 On constate que les NAs sont résiduelles et concentrées sur quelques individus. On peut les imputer sans se préoccuper de leur effet sur les résultats (c'est-à-dire sans imputation multiple).
 
-```{r}
-data2004 %>% kNN(k=5, imp_var = FALSE)
+```{r eval=FALSE}
+# Chantier interrompu car l'imputation fait buguer le code ensuite, pour des raisons obscures.
+data2004_i <- data2004 %>% kNN(k=5, imp_var = FALSE)
+
+data2004_i %>% filter(if_any(everything(), is.na))
 ```
 
 # Résultats descriptifs
 
 ## Outcomes
-
-```{r}
-# all_vars = c(q2_vars, q3_vars, q4_vars, q5_vars)
-# all_vars_n <- paste0(all_vars, "_n")
-# all_vars_f <- paste0(all_vars, "_f")
-```
 
 ```{r}
 likert_table <- 
@@ -625,8 +631,6 @@ ggsave("output/desc/likert_plot_2004.png", plot = plot, width = 10, height = 8, 
 ```{r include=FALSE}
 # Creating likert plots for each question
 p1 <- gglikert(data2004, include = all_of(q2_vars_f), sort = "ascending", add_totals = FALSE) +
-  # Does not work with q2_vars_f if it contains just one element
-  # Change to include = all_of(q2_vars_f) if additional variables are used
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) + 
   scale_fill_brewer(palette = "RdYlBu") + 
   ggtitle("How close do you feel to?") +
@@ -672,6 +676,16 @@ ggsave("output/desc/likert_plots_2004.png", plot = plot, width = 10, height = 15
 
 # ACP
 
+Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE). - Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived) - Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
+
+```{r}
+pca_data <- data2004 %>%
+  select(all_of(c(n_outcomes, f_controls))) %>%
+  rename_with(~ str_remove(., "_n$")) # Remove _n from variables names for cleaner outputs
+
+pca_results <- PCA(pca_data, scale.unit = TRUE, quali.sup = f_controls, ncp = 10, graph = FALSE)
+```
+
 ```{r}
 # Fonction pour tracer les corrplots
 draw_corrplot <- function(data, title, subtitle, filename, range) {
@@ -680,7 +694,7 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
     method = "square",
     ggtheme = theme_grey,
     show.legend = TRUE,
-    outline.color = "darkgrey",
+    outline.color = "#636363",
     tl.cex = 8) +
     
     if (identical(range, c(-1,1))) {
@@ -705,16 +719,6 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
 }
 ```
 
-Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE). - Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived) - Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
-
-```{r}
-pca_data <- data2004 %>%
-  select(all_of(c(n_outcomes, f_controls))) %>%
-  rename_with(~ str_remove(., "_n$")) # Remove _n from variables names for cleaner outputs
-
-pca_results <- PCA(pca_data, scale.unit = TRUE, quali.sup = f_controls, ncp = 10, graph = FALSE)
-```
-
 ```{r}
 # Résultats
 ## Histogramme de la contribution des axes à la variance totale
@@ -729,7 +733,7 @@ screeplot$labels$y <- "% de variance expliquée"
 screeplot$labels$title = "Histogramme de l'inertie totale"
 screeplot$theme$plot.title$hjust <- 0.5
 screeplot
-ggsave("output/acp/screeplot_ACP.png", plot = screeplot, width = 10, height = 6, units = "in", dpi = 300)
+ggsave("output/acp/screeplot.png", plot = screeplot, width = 10, height = 6, units = "in", dpi = 300)
 
 ## Contribution des variables aux axes
 ## Correspond à la qualité de représentation des variables (= cos2) normalisée entre 1 et 100
@@ -758,45 +762,50 @@ axis_tbl <- axis_df %>%
     style = cell_fill(color = "lightgrey"),
     locations = cells_column_labels(columns = c("1", "3", "5", "7", "9"))) 
 axis_tbl
-gtsave(axis_tbl, filename = "contrib_axes_ACP.docx", path = "output/acp/")
+gtsave(axis_tbl, filename = "contrib_axes.docx", path = "output/acp/")
 
 ## ... ou d'un corrplot
-draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variables à l'inertie des axes", "", "output/acp/contrib_axes_ACP.png", range = c(0,1))
+draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variables à l'inertie des axes", "", "output/acp/contrib_axes.png", range = c(0,1))
 
 ## Corrélation des variables aux axes
 ## Avec à nouveau deux représentations possibles...
 ## Des corrplots
-draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcomes aux axes", "", "output/acp/corr_outc_axes_ACP.png", range = c(-1,1))
-draw_corrplot(t(pca_results$quali.sup$coord[, 1:5]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes_ACP.png", range = c(-1,1))
+draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcomes aux axes", "", "output/acp/corr_outc_axes.png", range = c(-1,1))
+draw_corrplot(t(pca_results$quali.sup$coord[, 1:5]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes.png", range = c(-1,1))
 ## Des projections sur les plans factoriels
-plot.PCA(pca_results, 
-         axes = c(1,2), 
-         choix = "var", 
-         select = "contrib 8", 
-         habillage = "contrib",
-         title = "Projection des variables sur les axes 1 et 2", 
-         graph.type = 'ggplot') +
-  scale_color_gradient(name = "Contrib. (%)", 
-                       low = "#6D9EC1", high = "#E46726") +
+proj_var <- fviz_pca_var(pca_results, 
+             axes = c(1, 2), 
+             select.var = list(contrib = 12),
+             col.circle = '#636363',
+             col.var = "contrib",
+             gradient.cols = c("cornflowerblue", "#E46726"),
+             title = "Projection des variables sur les axes 1 et 2", 
+             repel = TRUE) + 
   theme_gray() +
+  geom_hline(yintercept = 0, color = "#636363", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "#636363", linetype = "dashed") +
   theme(plot.title = element_text(hjust = 0.5))
+proj_var
+ggsave("output/acp/proj_var.png", plot = proj_var)
 
-plot.PCA(pca_results, 
-         axes = c(1,2), # project on axes 1 and 2
-         choix = "ind", # project individuals
-         select = "none", # draw all individuals
-         unselect = 0.35, # add transparency to the points
-         habillage = "contrib", # add a coloration depending on contrib
-         label = "none", # do not display individuals' id
-         invisible = "quali", # do not display categorical controls
-         title = "Projection des individus les axes 1 et 2", 
-         graph.type = 'ggplot') +
+proj_ind <- fviz_pca_ind(pca_results, 
+             axes = c(1, 2),  # Project on axes 1 and 2
+             col.ind = "contrib",  # Color individuals based on contribution
+             pointshape = 16,  # Use solid points
+             alpha.ind = 0.7,  # Transparency for points
+             title = "Projection des individus les axes 1 et 2", 
+             label = "none",  # Do not display individual labels
+             repel = TRUE) +  # Avoid overlapping labels
+  theme_gray() + 
+  geom_hline(yintercept = 0, color = "#636363", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "#636363", linetype = "dashed") +
   scale_color_gradient(name = "Contrib. (%)", 
-                       low = "#6D9EC1", high = "#E46726") +
-  theme_gray() +
-  theme(plot.title = element_text(hjust = 0.5))
+                       low = "cornflowerblue", high = "#E46726") +
+    theme(plot.title = element_text(hjust = 0.5))
+proj_ind
+ggsave("output/acp/proj_ind.png", plot = proj_ind)
 
 ## Qualité de représentation des variables
-draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc_ACP.png", range = c(0,1))
-draw_corrplot(t(pca_results$quali.sup$cos2[, 1:5]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr_ACP.png", range = c(0,1))
+draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc.png", range = c(0,1))
+draw_corrplot(t(pca_results$quali.sup$cos2[, 1:5]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr.png", range = c(0,1))
 ```

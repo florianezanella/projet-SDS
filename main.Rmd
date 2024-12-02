@@ -470,17 +470,99 @@ sum(is.na(data2004$educ_f))
 
 ### Religion
 
--   Recoding religious denomination gen reltrad=0 replace reltrad=1 if denom==20 \| denom==21 \| (denom==10 & race==2) \| (denom==11 & race==2) \| (denom==18 & race==2) \| (denom==28 & race==2) \| denom==12 \| denom==13 \| (denom==15 & race==2) \| (denom==23 & race==2) \| (denom==14 & race==2) replace reltrad=1 if other==15 \| other==14 \| other==128 \| other==37 \| other==38 \| other==7 \| other==88 \| other==98 \| other==56 \| other==104 \| (other==93 & race==2) \| other==103 \| other==133 \| other==78 \| other==79 \| other==21 \| other==85 \| other==86 \| other==87 replace reltrad=2 if (denom==10 & race!=2) \| (denom==18 & race!=2) \| denom==32 \| (denom==15 & race!=2) \| denom==34 \| (denom==23 & race!=2) \| denom==42 \| (denom==14 & race!=2) \| denom==33 replace reltrad=2 if other==10 \| other==111 \| other==107 \| other==138 \| other==12 \| other==109 \| other==20 \| other==22 \| other==132 \| other==110 \| other==122 \| other==102 \| other==135 \| other==108 \| other==29 \| other==9 \| other==125 \| other==28\| other==31 \| other==32 \| other==26 \| other==101 \| other==36 \| other==35 \| other==34 \| other==127 \| other==121 \| other==5 \| other==116 \| other==39 \| other==41 \| other==42 \| other==43 \| other==2 \| other==91 \| other==45 \| other==47 \| other==112 \| other==120 \| other==139 \| other==124 \| other==51 \| other==53 \| other==13 \| other==16 \| other==52 \| other==100 \| other==90 \| other==18 \| other==55 \| other==24 \| other==3 \| other==134 \| other==146 \| other==129 \| other==131 \| other==63 \| other==115 \| (other==93 & race!=2) \| other==117 \| other==92 \| other==65 \| other==6 \| other==27 \| other==97 \| other==68 \| other==66 \| other==67 \| other==69 \| other==140 \| other==57 \| other==133 \| other==76 \| other==77 \| other==94 \| other==106 \| other==118 \| other==83 \| other==84 \| (denom==70 & attend\>=4 & attend!=9) replace reltrad=3 if (denom==11 & race!=2) \| denom==30 \| denom==50 \| denom==35 \| denom==31 \| denom==38 \| (denom==28 & race!=2) \| denom==40 \| denom==48 \| denom==43 \| denom==22 \| denom==41 replace reltrad=3 if other==99 \| other==19 \| other==25 \| other==40 \| other==44 \| other==46 \| other==49 \| other==48 \| other==50 \| other==54 \| other==89 \| other==1 \| other==105 \| other==8 \| other==70 \| other==71 \| other==73 \| other==72 \| other==148 \| other==23 \| other==119 \| other==81 \| other==96 replace reltrad=7 if other==30 \| other==33 \| other==145 \| other==114 \| other==58 \| other==62 \| other==59 \| other==60 \| other==61 \| other==64 \| other==130 \| other==113 replace reltrad=7 if other==29 \| other==17 \| other==75 \| other==136 \| other==141 \| other==74 \| other==11 \| other==80 \| other==82 \| other==95 replace reltrad=4 if relig==2 \| other==123 replace reltrad=5 if relig==3 replace reltrad=6 if relig==4 replace reltrad=7 if relig==5 replace reltrad=7 if reltrad==0 recode reltrad (3=1) (1=3) label define reltrad 1 "Mainline Protestant" 2 "Evangelical Protestant" 3 "Black Protestant" 4 "Catholic" 5 "Jewish" 6 "None" 7 "Other" label values reltrad reltrad
+```{r}
+data2004 <- data2004 %>%
+  mutate(reltrad_f = factor(
+    case_when(
+      # Mainline Protestant
+      denom %in% c(12, 13, 14, 15, 20, 21, 23) |
+        (denom %in% c(10, 11, 18, 28) & race == 2) |
+        other %in% c(7, 14, 15, 21, 37, 38, 56, 78, 79, 85, 86, 87, 88, 98, 103, 104, 128, 133) |
+        (other == 93 & race == 2) ~ 1,
+      # Evangelical Protestant
+      denom %in% c(32, 33, 34, 42) |
+        (denom %in% c(10, 14, 15, 18, 23, 93) & race != 2) |
+        other %in% c(2, 3, 5, 6, 9, 10, 12, 13, 16, 18, 20, 22, 24, 26, 27,
+                     28, 29, 31, 32, 34, 35, 36, 41, 42, 43, 45, 47, 51, 52,
+                     53, 55, 57, 63, 65, 66, 67, 68, 69, 76, 83, 84, 90, 91,
+                     92, 94, 97, 100, 101, 102, 106, 107, 108, 109, 110, 111,
+                     112, 115, 116, 117, 118, 120, 121, 122, 124, 125, 127,
+                     129, 131, 132, 133, 134, 135, 138, 139, 140, 146) |
+        (denom == 70 & attend >= 4 & attend != 9) ~ 2,
+      # Black Protestant
+      denom %in% c(22, 30, 31, 35, 38, 40, 41, 43, 48, 50) |
+        (denom %in% c(11, 28) & race != 2) |
+        other %in% c(1, 8, 19, 23, 25, 40, 44, 46, 48, 49, 50, 54, 
+                     70, 71,72, 73, 81, 89, 96, 99, 105, 119, 148) ~ 3,
+      # Other
+      other %in% c(11, 17, 29, 30, 33, 58, 59, 60, 61, 62, 64, 74,
+                   75, 80, 82, 95, 113, 114, 130, 136, 141, 145) ~ 6,
+      # Catholic
+      relig == 2 | other == 123 ~ 4,
+      # Jewish
+      relig == 3 ~ 5,
+      # None
+      relig == 4 ~ 0,
+      # Other
+      TRUE ~ 6),
+    levels = 0:6, 
+    labels = c('None', 'Mainline Protestant', 'Evangelical Protestant', 'Black Protestant', 'Catholic', 'Jewish', 'Other'))) %>%
+  set_variable_labels(reltrad_f = 'Religion')
 
--   Recoding religiosity gen religstr=reliten recode religstr (2/4=0) (8/9=.)
+data2004 <- data2004 %>%
+  mutate(religstr_f = factor(
+    case_when(
+      reliten == 1 ~ 1,
+      reliten %in% c(1:3) ~ 0,
+      TRUE ~ NA_real_),
+    levels = c(0:1),
+    labels = c('Strong', 'Not strong'))) %>%
+  set_variable_labels(religstr_f = 'Religion affiliation')
+```
 
 ### Revenus
 
--   Converting income from 1986 to 2004 dollars (based on <http://data.bls.gov/cgi-bin/cpicalc.pl>) gen realinc2004=realinc\*1.72 gen lnrealinc2004=ln(realinc2004)
+```{r}
+data2004 <- data2004 %>%
+  mutate(
+    realinc2004 = realinc * 1.72,
+    lnrealinc2004 = log(realinc2004)
+  ) %>%
+  set_variable_labels(
+    realinc2004 = 'Income',
+    lnrealinc2004 = 'Log_Income')
+```
 
 ### Identification partisane
 
--   Recoding party identification recode partyid (0=1) (1/2=2) (3=3) (4/5=4) (6=5) (7=6), gen(partyidr) recode partyidr (6=.) label define partyidr 1 "Strong Democrat" 2 "Democrat" 3 "Independent" 4 "Republican" 5 "Strong Republican" 6 "Other" label values partyidr partyidr
+```{r}
+# B&M recoding
+data2004 <- data2004 %>%
+  mutate(party_f = factor(
+      case_when(
+        partyid == 0 ~ 1,
+        partyid %in% c(1, 2) ~ 2,
+        partyid == 3 ~ 3,
+        partyid %in% c(4, 5) ~ 4,
+        partyid == 6 ~ 5,
+        partyid == 7 ~ 6,
+        TRUE ~ NA_real_),
+      levels = 1:6,
+      labels = c("Strong Democrat", "Democrat", "Independent", "Republican", "Strong Republican", "Other"))) %>%
+  set_variable_labels(party_f = "Partishanship")
+
+# Simpler recoding
+data2004 <- data2004 %>%
+  mutate(party_fs = factor(
+      case_when(
+        partyid %in% c(0:2) ~ 1,
+        partyid %in% c(3,7) ~ 0,
+        partyid %in% c(4:6) ~ -1,
+        TRUE ~ NA_real_),
+      levels = -1:1,
+      labels = c("Republican", "Independent", "Democrat"))) %>%
+  set_variable_labels(party_fs = "Partishanship")
+```
 
 ### Lieu de naissance
 
@@ -489,7 +571,8 @@ data2004 <- data2004 %>%
   mutate(born_usa = factor(
       case_when(
         born == 1 ~ 0,
-        born ==  2 ~ 1),
+        born ==  2 ~ 1,
+        TRUE ~ NA_real_),
       levels = 0:1, 
       labels = c('Yes', 'No'))) %>%
   set_variable_labels(born_usa = "Was born in this country")
@@ -506,7 +589,24 @@ sum(is.na(data2004$born_usa))
 
 ### Région
 
--   Recoding region recode region (1/2=1) (3/4=2) (5/7=3) (8=4) (9=5), gen(regionr) label define regionr 1 "Northeast" 2 "Midwest" 3 "South" 4 "Mountain" 5 "Pacific" label values regionr regionr
+recode region (1/2=1) (3/4=2) (5/7=3) (8=4) (9=5), gen(regionr)
+label define regionr 1 "Northeast" 2 "Midwest" 3 "South" 4 "Mountain" 5 "Pacific"
+label values regionr regionr
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(region_f = factor(
+      case_when(
+        region %in% 1:2 ~ 1,
+        region %in% 3:4 ~ 2,
+        region %in% 5:7 ~ 3,
+        region == 8 ~ 4,
+        region == 9 ~ 5,
+        TRUE ~ NA_real_),
+      levels = 1:5, 
+      labels = c("Northeast", "Midwest", "South", "Mountain", "Pacific"))) %>%
+  set_variable_labels(region_f = "Region")
+```
 
 # Valeurs manquantes
 
@@ -523,8 +623,8 @@ f_outcomes <- paste0(base_outcomes, "_f")
 n_outcomes <- paste0(base_outcomes, "_n")
 all_outcomes <- c(f_outcomes, n_outcomes)
 
-f_controls <- c('sexe', 'age_f', 'race_f', 'educ_f', 'born_usa')
-n_controls <- c('age_n', 'educ_n')
+f_controls <- c('sexe', 'age_f', 'race_f', 'educ_f', 'born_usa', 'party_f', 'party_fs', 'religstr_f', 'religstr_f', 'region_f')
+n_controls <- c('age_n', 'educ_n', 'realinc2004', 'lnrealinc2004')
 all_controls <- c(f_controls, n_controls)
 
 all_vars <-c (all_outcomes, all_controls, 'wgt')
@@ -784,8 +884,25 @@ axis_tbl <- axis_df %>%
 axis_tbl
 gtsave(axis_tbl, filename = "contrib_axes.docx", path = "output/acp/")
 
-## ... ou d'un corrplot
+## ... d'un corrplot ...
 draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variables à l'inertie des axes", "", "output/acp/contrib_axes.png", range = c(0,1))
+
+## ... ou de graphs
+contrib_1 <- fviz_contrib(pca_results, choice = "var", axes = 1, top = 10)
+contrib_1$layers[[1]]$aes_params$fill <- "lightskyblue"
+contrib_1$layers[[1]]$aes_params$colour <- "cornflowerblue"
+contrib_1$layers[[2]]$aes_params$colour <- "darkblue"
+contrib_1$labels$title <- "Contribution des variables à l'axe 1"
+contrib_1$theme$plot.title$hjust <- 0.5
+contrib_1
+
+contrib_2 <- fviz_contrib(pca_results, choice = "var", axes = 2, top = 10)
+contrib_2$layers[[1]]$aes_params$fill <- "lightskyblue"
+contrib_2$layers[[1]]$aes_params$colour <- "cornflowerblue"
+contrib_2$layers[[2]]$aes_params$colour <- "darkblue"
+contrib_2$labels$title <- "Contribution des variables à l'axe 2"
+contrib_2$theme$plot.title$hjust <- 0.5
+contrib_2
 
 ## Corrélation des variables aux axes
 ## Avec à nouveau deux représentations possibles...
@@ -811,17 +928,20 @@ proj_var
 ggsave("output/acp/proj_var.png", plot = proj_var)
 
 proj_ind <- fviz_pca_ind(pca_results, 
-             axes = c(1, 2),  # Project on axes 1 and 2
-             col.ind = "contrib",  # Color individuals based on contribution
-             pointshape = 16,  # Use solid points
-             alpha.ind = 0.7,  # Transparency for points
+             axes = c(1, 2),
+             habillage = "party_fs",
+             pointshape = 16,
+             alpha.ind = 0.7,
              title = "Projection des individus sur les axes 1 et 2", 
-             label = "none",  # Do not display individual labels
-             repel = TRUE) +  # Avoid overlapping labels
+             label = "none",
+             repel = TRUE) +
   theme_gray() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  scale_color_gradient(name = "Contrib. (%)", 
-                       low = "cornflowerblue", high = "#E46726")
+  scale_color_manual(
+    name = "Affiliation\npartisane",
+    values = c("party_fs_Republican" = "coral1", "party_fs_Independent" = "lightgreen", "party_fs_Democrat" = "cornflowerblue"),
+    labels = c("party_fs_Republican" = "Republicains", "party_fs_Independent" = "Indépendants", "party_fs_Democrat" = "Démocrates")  # Labels
+  ) +
+  theme(plot.title = element_text(hjust = 0.5)) 
 proj_ind$layers <- proj_ind$layers[-c(2, 3)] # removing original hline and vline
 proj_ind <- proj_ind +
   geom_hline(yintercept = 0, color = "#636363", linetype = "twodash") +
@@ -833,3 +953,43 @@ ggsave("output/acp/proj_ind.png", plot = proj_ind)
 draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc.png", range = c(0,1))
 draw_corrplot(t(pca_results$quali.sup$cos2[, 1:5]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr.png", range = c(0,1))
 ```
+
+# kmeans
+
+https://www.datanovia.com/en/blog/types-of-clustering-methods-overview-and-quick-start-r-code/
+
+```{r}
+data_km <- data2004 %>% select(n_outcomes) %>% na.omit() %>% scale()
+
+fviz_nbclust(data_km, hcut, method = "gap_stat")
+
+results_km <- kmeans(data_km, 7, nstart = 25)
+fviz_cluster(results_km, data = data_km,
+             palette = c("#00AFBB","#2E9FDF", "#E7B800", "#FC4E07", "lightgreen", "purple", "darkgrey"),
+             ggtheme = theme_minimal(),
+             main = "Partitioning Clustering Plot"
+             )
+```
+
+# DBScan
+
+```{r}
+library("fpc")
+db_results <- fpc::dbscan(data_km, eps = 2.5, MinPts = 5)
+
+fviz_cluster(db_results,
+             data = data_km, 
+             stand = FALSE,
+             ellipse = TRUE, 
+             show.clust.cent = TRUE,
+             geom = "point", 
+             palette = "jco", 
+             ggtheme = theme_grey())
+
+print(db_results)
+
+print(paste("Number of clusters:", length(unique(db_results$cluster[db_results$cluster != 0]))))
+
+print(paste("Number of noise points:", sum(db_results$cluster == 0)))
+```
+

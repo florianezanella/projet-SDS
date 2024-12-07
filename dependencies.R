@@ -4,6 +4,7 @@ library(dplyr)
 library(haven)
 library(labelled)
 library(tidyr)
+library(arrow)
 
 ## Helpers
 library(stringr)

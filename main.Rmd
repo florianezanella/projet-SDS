@@ -95,7 +95,7 @@ Some people say the following things are important for being truly American. Oth
 
 a.  To have been born in America
 
-b.  To have American citisenship
+b.  To have American citizenship
 
 c.  To have lived in America for most of one's life
 
@@ -105,7 +105,9 @@ e.  To be a Christian
 
 f.  To respect America's political institutions and laws
 
-g.  To feel American h. To have American ancestry
+g.  To feel American 
+
+h. To have American ancestry
 
 B&M n'utilisent pas l'a modalité l'item h (amancstr).
 
@@ -455,12 +457,18 @@ data2004 <- data2004 %>%
 ```{r}
 data2004 <- data2004 %>%
   mutate(
+    realinc = as.numeric(realinc),
     realinc2004 = realinc * 1.72,
-    lnrealinc2004 = log(realinc2004)
-  ) %>%
+    lnrealinc2004 = log(realinc2004),
+    realinc_f = cut(
+      realinc, 
+      breaks = c(-Inf, 10000, 20000, 30000, Inf),
+      labels = c('< 10k', '10-20k', '20-30k','> 30k'),
+      right = FALSE)) %>%
   set_variable_labels(
-    realinc2004 = 'Income',
-    lnrealinc2004 = 'Log_Income')
+    realinc2004 = 'Family Income',
+    lnrealinc2004 = 'Log of Family Income',
+    realinc_f = 'Family Income')
 ```
 
 ### Identification partisane
@@ -538,8 +546,8 @@ f_outcomes <- paste0(base_outcomes, "_f")
 n_outcomes <- paste0(base_outcomes, "_n")
 all_outcomes <- c(f_outcomes, n_outcomes)
 
-f_controls <- c('sex', 'age_f', 'race_f', 'educ_f', 'born_usa', 
-                'party_f', 'party_fs', 'religstr_f', 'reltrad_f', 'region_f')
+f_controls <- c('sex', 'age_f', 'race_f', 'educ_f', 'born_usa', 'realinc2004', 'lnrealinc2004',
+                'realinc_f', 'party_f', 'party_fs', 'religstr_f', 'reltrad_f', 'region_f')
 n_controls <- c('age_n', 'educ_n', 'realinc2004', 'lnrealinc2004')
 all_controls <- c(f_controls, n_controls)
 
@@ -580,6 +588,11 @@ On réalise l'imputation par knn.
 
 ```{r}
 data2004_i <- data2004_f %>% kNN(k=5, imp_var = FALSE)
+```
+
+```{r}
+write_parquet(data2004_f, "data/data2004_f.parquet")
+write_parquet(data2004_i, "data/data2004_i.parquet")
 ```
 
 # Résultats descriptifs
@@ -665,28 +678,28 @@ ggsave("output/desc/likert_plot_2004.png", plot = plot, width = 10, height = 8, 
 
 ```{r include=FALSE}
 # Creating likert plots for each question
-p1 <- gglikert(data2004_i, include = all_of(q2_vars_f), sort = "ascending", add_totals = FALSE) +
+p1 <- gglikert(data2004_f, include = all_of(q2_vars_f), sort = "ascending", add_totals = FALSE) +
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) + 
   scale_fill_brewer(palette = "RdYlBu") + 
   ggtitle("How close do you feel to?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
 
-p2 <- gglikert(data2004_i, include = all_of(q3_vars_f), sort = "ascending", add_totals = FALSE) +
+p2 <- gglikert(data2004_f, include = all_of(q3_vars_f), sort = "ascending", add_totals = FALSE) +
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) + 
   scale_fill_brewer(palette = "RdYlBu") +
   ggtitle("How important do you think each of the following is?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
 
-p3 <- gglikert(data2004_i, include = all_of(q5_vars_f), sort = "ascending", add_totals = FALSE) + 
+p3 <- gglikert(data2004_f, include = all_of(q5_vars_f), sort = "ascending", add_totals = FALSE) + 
   scale_fill_brewer(palette = "RdYlBu") +
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) +
   ggtitle("How proud are you of America in each of the following?") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
 
-p4 <- gglikert(data2004_i, include = all_of(q4_vars_f), sort = "ascending", add_totals = FALSE) + 
+p4 <- gglikert(data2004_f, include = all_of(q4_vars_f), sort = "ascending", add_totals = FALSE) + 
   scale_fill_brewer(palette = "RdYlBu") +
   scale_x_continuous(labels = function(x) abs(x)*100, limits = c(-0.51, 1)) +
   ggtitle("How much do you agree or disagree with the following statements?") +
@@ -707,14 +720,18 @@ plot <- gtable_add_grob(plot, title, t = 1, l = 1, r = ncol(plot))
 ggsave("output/desc/likert_plots_2004.png", plot = plot, width = 10, height = 15, dpi = 300)
 ```
 
-## Population
+## Contrôles
 
 # ACP
 
-Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE). - Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived) - Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
+Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE). 
+
+- Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived) 
+
+- Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
 
 ```{r}
-f_controls <- c('sex', 'age_f', 'race_f', 'educ_f', 'born_usa', 'party_fs', 'religstr_f', 'reltrad_f', 'region_f')
+f_controls <- c('sex', 'race_f', 'born_usa', 'party_fs', 'religstr_f', 'reltrad_f', 'region_f', 'realinc_f')
 
 pca_data <- data2004_i %>%
   select(all_of(c(n_outcomes, f_controls))) %>%
@@ -751,9 +768,7 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
     legend.title = element_blank(),
     legend.key.width = unit(0.3, "cm"),
     legend.key.height = unit(1, "null"))
-  
-  ggsave(filename, plot = corrplot)
-  
+    
   # On ajoute titres et sous-titres pour les graphs affichés
   corrplot <- corrplot + 
     ggtitle(title) +
@@ -764,6 +779,8 @@ draw_corrplot <- function(data, title, subtitle, filename, range) {
       labs(subtitle = subtitle) + 
       theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
   }
+  
+  ggsave(filename, plot = corrplot)
   
   print(corrplot)
 }
@@ -825,6 +842,7 @@ contrib_1$layers[[2]]$aes_params$colour <- "darkblue"
 contrib_1$labels$title <- "Contribution des variables à l'axe 1"
 contrib_1$theme$plot.title$hjust <- 0.5
 contrib_1
+ggsave("output/acp/contrib_axe_1.png", plot = contrib_1)
 
 contrib_2 <- fviz_contrib(pca_results, choice = "var", axes = 2, top = 10)
 contrib_2$layers[[1]]$aes_params$fill <- "lightskyblue"
@@ -833,6 +851,7 @@ contrib_2$layers[[2]]$aes_params$colour <- "darkblue"
 contrib_2$labels$title <- "Contribution des variables à l'axe 2"
 contrib_2$theme$plot.title$hjust <- 0.5
 contrib_2
+ggsave("output/acp/contrib_axe_2.png", plot = contrib_2)
 
 ## Corrélation des variables aux axes
 ## Avec à nouveau deux représentations possibles...
@@ -869,8 +888,7 @@ proj_ind <- fviz_pca_ind(pca_results,
   scale_color_manual(
     name = "Affiliation\npartisane",
     values = c("Republican" = "coral1", "Independent" = "lightgreen", "Democrat" = "cornflowerblue"),
-    labels = c("Republican" = "Republicains", "Independent" = "Indépendants", "Democrat" = "Démocrates")  # Labels
-  ) +
+    labels = c("Republican" = "Republicains", "Independent" = "Indépendants", "Democrat" = "Démocrates")) +
   theme(plot.title = element_text(hjust = 0.5))
 proj_ind$layers <- proj_ind$layers[-c(2, 3)] # removing original hline and vline
 proj_ind <- proj_ind +
@@ -878,6 +896,9 @@ proj_ind <- proj_ind +
   geom_vline(xintercept = 0, color = "#636363", linetype = "twodash")
 proj_ind
 ggsave("output/acp/proj_ind.png", plot = proj_ind)
+
+proj_ind <- proj_ind + xlim(-3, 3) + ylim(-3, 3) # Zoom in
+ggsave("output/acp/proj_ind_zoom.png", plot = proj_ind)
 
 ## Qualité de représentation des variables
 draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc.png", range = c(0,1))
@@ -887,13 +908,35 @@ draw_corrplot(t(pca_results$quali.sup$cos2[, 1:5]), "Qualité de représentation
 # kmeans
 
 https://www.datanovia.com/en/blog/types-of-clustering-methods-overview-and-quick-start-r-code/
+https://bookdown.org/evraloui/lbira2110/clustering.html
 
-```{r}
+FUNcluster 	= a partitioning function which accepts as first argument a (data) matrix like x, second argument, say k, k >= 2, the number of clusters desired, and returns a list with a component named cluster which contains the grouping of observations. Allowed values include: 
+kmeans, 
+cluster::pam, 
+cluster::clara, 
+cluster::fanny, # Fuzzy kmeans
+cluster::hcut, # Classification ascendante hiérarchique
+etc.
+
+```{r eval=FALSE}
 data_km <- data2004_i %>% select(n_outcomes) %>% na.omit() %>% scale()
 
-fviz_nbclust(data_km, hcut, method = "gap_stat") +
+fviz_nbclust(data_km, 
+             FUNcluster = cluster::pam, 
+             method = "gap_stat") +
   theme(plot.title = element_text(hjust = 0.5))
 
+fviz_nbclust(data_km, 
+             FUNcluster = cluster::pam, 
+             method='silhouette') +
+  theme(plot.title = element_text(hjust = 0.5))
+
+fviz_nbclust(data_km, 
+             FUNcluster = cluster::pam, 
+             method='wss') +
+  theme(plot.title = element_text(hjust = 0.5))
+
+results_km <- cluster::pam(data_km, 2, nstart = 25)
 results_km <- kmeans(data_km, 4, nstart = 25)
 
 fviz_cluster(results_km, 
@@ -909,7 +952,7 @@ fviz_cluster(results_km,
 
 ```{r}
 library("fpc")
-db_results <- fpc::dbscan(data_km, eps = 2.5, MinPts = 5)
+db_results <- fpc::dbscan(data_km, eps = 4, MinPts = 5)
 
 fviz_cluster(db_results,
              data = data_km,
@@ -923,5 +966,79 @@ print(db_results)
 
 print(paste("Number of clusters:", length(unique(db_results$cluster[db_results$cluster != 0]))))
 print(paste("Number of noise points:", sum(db_results$cluster == 0)))
+```
+
+```{r}
+library(tidySEM)
+lpa.data <- data2004_i %>% select(all_of(n_outcomes))
+lpa.res <- mx_profiles(data = lpa.data, classes = 4)
+fit <- table_fit(lpa.res)
+
+fit %>%
+  select(Classes, LL, Parameters, AIC, BIC) %>%
+  gt() %>%
+  fmt_number(c(LL, AIC, BIC), decimals = 1) %>%
+  tab_style(
+    style = cell_fill(
+      color = "lightgreen",
+      alpha = 0.7),
+    locations = cells_body(
+      columns = AIC,
+      rows = AIC == min(AIC, na.rm = TRUE))) %>%
+  tab_style(
+    style = cell_fill(
+      color = "lightgreen",
+      alpha = 0.7),
+    locations = cells_body(
+      columns = BIC,
+      rows = BIC == min(BIC, na.rm = TRUE))) %>%
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", style = "italic"),
+      cell_text(align = "center")),
+    locations = cells_column_labels(everything())) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body())
+
+predict.probs <- class_prob(lpa.res)
+predict.probs$sum.posterior %>%
+  gt() %>%
+  fmt_number(count, decimals = 0) %>%
+  fmt_number(proportion, decimals = 3) %>%
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", style = "italic"),
+      cell_text(align = "center")),
+    locations = cells_column_labels(everything()))
+
+mg_probs <-
+  rbind(
+    lpa.res$output$matrices$class1.M,
+    lpa.res$output$matrices$class2.M) %>%
+  as.data.frame() %>%
+  mutate(class = row_number()) %>%
+  setNames(c(outcomes, "p.class")) %>%
+  pivot_longer(
+    cols = -p.class,
+    names_to = "Column",
+    values_to = "Value") %>%
+  pivot_wider(
+    names_from = p.class,
+    values_from = Value) %>%
+  rename(
+    Outcome = "Column",
+    "Class 1" = "1",
+    "Class 2" = "2") %>%
+  gt() %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", style = "italic"),
+      cell_text(align = "center")),
+    locations = cells_column_labels(everything()))
+mg_probs
+
+plot_profiles(lpa.res)
 ```
 

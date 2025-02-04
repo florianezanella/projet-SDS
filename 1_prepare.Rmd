@@ -1,0 +1,596 @@
+
+```{r setup}
+source("dependencies.R")
+```
+
+```{r}
+# data1996 <- read_dta("data/GSS1996.dta")
+data2004 <- read_dta("data/GSS2004.dta")
+# data2014 <- read_dta("data/GSS2014.dta")
+```
+
+On se limite pour l'instant aux données concernant l'année 2004.
+
+# Recodages
+
+## Outcomes
+
+Les données proviennent du module Identité Nationale, pp.96-109 du questionnaire disponible ici : <https://gss.norc.org/content/dam/gss/get-documentation/pdf/quex/2004%20GSS%20V6.pdf>
+
+Ce module a seulement été administré à 1215 personnes.
+
+Une difficulté est que les variables retournées par haven sont mixtes : numériques pour les réponses effectives, textuelles pour les types de NAs. Or, il serait dommage d'agréger directement les NAs, car certaines correspondes à des réponses effectives, avec la modalité can't choose. Il faut plusieurs conversions successives pour bien récupérer cette dernière. On la traite comme une modalité neutre, les échelles de Likert à 4 modalités passant ainsi à 5. On en profite pour standardiser les valeurs en les centrant sur 0, ainsi que les labels. On obtient deux nouvelles variables : l'une numérique correspondant à un score, l'autre factorielle.
+
+```{r}
+# Score recoding
+mods <- c(-2:2)
+lbls <- c('Not at all', 'Not very much', 'Can\'t choose', 'Somewhat / fairly', 'Very much')
+
+# B&M recoding
+# mods <- c(1,2,NA_real_,3,4)
+# lbls <- c('Not at all', 'Not very much', 'Somewhat / fairly', 'Very much')
+```
+
+### Q.2
+
+How close do you feel to...
+
+a.  Your town or city
+
+b.  Your state
+
+c.  America
+
+d.  North America
+
+B&M retiennent n'utilisent pas les items a (clsetown), b (clsestat) et d (clsenoam).
+
+```{r}
+# Variables
+q2_vars <- c('clsetown', 'clsestat', 'clseusa', 'clsenoam')
+q2_vars_n <- paste0(q2_vars, "_n")
+
+# Labels
+# q2_lbls <- c('Not close at all', 'Not very close', 'Can\'t choose', 'Close', 'Very close') # original
+q2_lbls <- lbls # standardized
+
+data2004 <- data2004 %>%
+  mutate(across(all_of(q2_vars), 
+                ~ as_factor(.)
+  )) %>%
+  mutate(across(all_of(q2_vars), 
+                ~ case_when(
+                  . == 'VERY CLOSE' ~ mods[5],
+                  . == 'close' ~ mods[4],
+                  . == 'CANT CHOOSE' ~ mods[3],
+                  . == 'NOT VERY CLOSE' ~ mods[2],
+                  . == 'NOT CLOSE AT ALL' ~ mods[1],
+                  TRUE ~ NA_real_),
+                .names = '{.col}_n')) %>%
+  mutate(across(all_of(q2_vars_n), 
+                ~ factor(.,
+                         levels = mods,
+                         labels = q2_lbls),
+                .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
+```
+
+```{r}
+# Labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    clseusa_n = 'How close ... America',
+    clsetown_n = 'How close ... your town or city',
+    clsestat_n = 'How close ... your state',
+    clsenoam_n = 'How close ... North America') %>%
+  set_variable_labels(
+    clseusa_f = 'How close ... America',
+    clsetown_f = 'How close ... your town or city',
+    clsestat_f = 'How close ... your state',
+    clsenoam_f = 'How close ... North America')
+```
+
+### Q.3
+
+Some people say the following things are important for being truly American. Others say they are not important. How important do you think each of the following is?
+
+a.  To have been born in America
+
+b.  To have American citizenship
+
+c.  To have lived in America for most of one's life
+
+d.  To be able to speak English
+
+e.  To be a Christian
+
+f.  To respect America's political institutions and laws
+
+g.  To feel American 
+
+h. To have American ancestry
+
+B&M n'utilisent pas l'a modalité l'item h (amancstr).
+
+```{r}
+# Variables
+q3_vars <- c('ambornin', 'amcit', 'amlived', 'amenglsh', 'amchrstn', 'amgovt', 'amfeel', 'amancstr')
+q3_vars_n <- paste0(q3_vars, "_n")
+
+# Labels
+# q3_lbls <- c('Not important at all', 'Not very important', 'Can\'t choose', 'Fairly important', 'Very important') # originals
+q3_lbls <- lbls # standardized
+
+data2004 <- data2004 %>%
+  mutate(across(all_of(q3_vars), 
+                ~ as_factor(.)
+  )) %>%
+  mutate(across(all_of(q3_vars), 
+                ~ case_when(
+                  . == 'VERY IMPORTANT' ~ mods[5],
+                  . == 'FAIRLY IMPORTANT' ~ mods[4],
+                  . == 'NOT VERY IMPORTANT' ~ mods[2],
+                  . == 'NOT IMPORTANT AT ALL' ~ mods[1],
+                  . == 'CANT CHOOSE' ~ mods[3],
+                  TRUE ~ NA_real_),
+                .names = '{.col}_n')) %>%
+  mutate(across(all_of(q3_vars_n), 
+                ~ factor(.,
+                         levels = mods,
+                         labels = q3_lbls),
+                .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
+```
+
+```{r}
+# Labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    ambornin_n = 'How important ... to have been born in America',
+    amcit_n = 'How important ... to have American citizenship',
+    amlived_n = 'How important ... to have lived in America for most of one\'s life',
+    amenglsh_n = 'How important ... to be able to speak English',
+    amchrstn_n = 'How important ... to be a Christian',
+    amgovt_n = 'How important ... to respect America\'s political institutions and laws',
+    amfeel_n = 'How important ... to feel American',
+    amancstr_n = 'How important ... to have American ancestry') %>%
+  set_variable_labels(
+    ambornin_f = 'How important ... to have been born in America',
+    amcit_f = 'How important ... to have American citizenship',
+    amlived_f = 'How important ... to have lived in America for most of one\'s life',
+    amenglsh_f = 'How important ... to be able to speak English',
+    amchrstn_f = 'How important ... to be a Christian',
+    amgovt_f = 'How important ... to respect America\'s political institutions and laws',
+    amfeel_f = 'How important ... to feel American',
+    amancstr_f = 'How important ... to have American ancestry')
+```
+
+### Q.4
+
+How much do you agree or disagree with the following statements?
+
+a.  I would rather be a citizen of America than of any other country in the world
+
+b.  There are some things about America today that make me feel ashamed of America
+
+c.  The world would be a better place if people from other countries were more like the Americans
+
+d.  Generally speaking, America is a better country than most other countries
+
+e.  People should support their country even if the country is in the wrong.
+
+f.  When my country does well in international sports, it makes me proud to be American
+
+g.  I am often less proud of America than I would like to be
+
+B&M n'utilisent pas les items f (amsports) et g (lessprd).
+
+```{r}
+# Variables
+q4_vars <- c('amcitizn', 'amshamed', 'belikeus', 'ambetter', 'ifwrong', 'amsports', 'lessprd')
+q4_vars_n <- paste0(q4_vars, "_n")
+
+# Labels
+# q4_lbls <- c('Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree') # original
+q4_lbls <- lbls # standardized
+
+data2004 <- data2004 %>%
+  mutate(across(all_of(q4_vars), 
+                ~ as_factor(.)
+  )) %>%
+  mutate(across(all_of(q4_vars), 
+                ~ case_when(
+                  . == 'STRONGLY AGREE' ~ mods[5],
+                  . == 'agree' ~ mods[4],
+                  . == 'NEITHER AGREE NOR DISAGREE' ~ mods[3],
+                  . == 'disagree' ~ mods[2],
+                  . == 'STRONGLY DISAGREE' ~ mods[1],
+                  . == 'CANT CHOOSE' ~ mods[3],
+                  TRUE ~ NA_real_),
+                .names = '{.col}_n')) %>%
+  mutate(across(all_of(q4_vars_n), 
+                ~ factor(.,
+                         levels = mods,
+                         labels = q4_lbls),
+                .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
+```
+
+```{r}
+# Labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    amcitizn_n = 'I would rather be a citizen of America than of any other country in the world',
+    belikeus_n = 'The world would be a better place if people from other countries were more like the Americans',
+    ambetter_n = 'Generally speaking, America is a better country than most other countries',
+    ifwrong_n = 'People should support their country even if their country is in the wrong',
+    amshamed_n = 'There are some things about America today that make me feel ashamed of America',
+    amsports_n = 'When my country does well in international sports, it makes me proud to be American',
+    lessprd_n = 'I am often less proud of America than I would like to be') %>%
+  set_variable_labels(
+    amcitizn_f = 'I would rather be a citizen of America than of any other country in the world',
+    belikeus_f = 'The world would be a better place if people from other countries were more like the Americans',
+    ambetter_f = 'Generally speaking, America is a better country than most other countries',
+    ifwrong_f = 'People should support their country even if their country is in the wrong',
+    amshamed_f = 'There are some things about America today that make me feel ashamed of America',
+    amsports_f = 'When my country does well in international sports, it makes me proud to be American',
+    lessprd_f = 'I am often less proud of America than I would like to be')
+```
+
+### Q.5
+
+How proud are you of America in each of the following?
+
+a.  The way democracy works
+
+b.  Its political influence in the world
+
+c.  America's economic achievements
+
+d.  Its social security system
+
+e.  Its scientific and technological achievements
+
+f.  Its achievements in sports
+
+g.  Its achievements in the arts & literature
+
+h.  America's armed forces
+
+i.  Its history
+
+j.  Its fair and equal treatment of all groups in society
+
+B&M utilisent tous les items.
+
+```{r}
+# Variables
+q5_vars = c('proudsss', 'proudgrp', 'proudpol', 'prouddem', 'proudeco', 'proudspt', 'proudart', 'proudhis', 'proudmil', 'proudsci')
+q5_vars_n <- paste0(q5_vars, "_n")
+
+# Labels
+# q5_lbls <- c('Not proud at all', 'Not very proud', 'Can\'t choose', 'Somewhat proud', 'Very pround') # original
+q5_lbls <- lbls # standardized
+
+data2004 <- data2004 %>%
+  mutate(across(all_of(q5_vars), 
+                ~ as_factor(.)
+  )) %>%
+  mutate(across(all_of(q5_vars), 
+                ~ case_when(
+                  . == 'VERY PROUD' ~ mods[5],
+                  . == 'SOMEWHAT PROUD' ~ mods[4],
+                  . == 'NOT VERY PROUD' ~ mods[2],
+                  . == 'NOT PROUD AT ALL' ~ mods[1],
+                  . == 'CANT CHOOSE' ~ mods[3],
+                  TRUE ~ NA_real_),
+                .names = '{.col}_n')) %>%
+  mutate(across(all_of(q5_vars_n), 
+                ~ factor(.,
+                         levels = mods,
+                         labels = q5_lbls),
+                .names = "{stringr::str_replace(.col, '_n$', '')}_f"))
+```
+
+```{r}
+# Labels
+data2004 <- data2004 %>%
+  set_variable_labels(
+    prouddem_n = 'How proud ... the way democracy works',
+    proudpol_n = 'How proud ... its political influence in the world',
+    proudeco_n = 'How proud ... America\'s economic achievements',
+    proudsss_n = 'How proud ... its social security system',
+    proudsci_n = 'How proud ... its scientific and technological achievements',
+    proudspt_n = 'How proud ... its achievements in sports',
+    proudart_n = 'How proud ... its achievements in the arts & literature',
+    proudmil_n = 'How proud ... America\'s armed forces',
+    proudhis_n = 'How proud ... its history',
+    proudgrp_n = 'How proud ... its fair and equal treatment of all groups in society') %>% 
+  set_variable_labels(
+    prouddem_f = 'How proud ... the way democracy works',
+    proudpol_f = 'How proud ... its political influence in the world',
+    proudeco_f = 'How proud ... America\'s economic achievements',
+    proudsss_f = 'How proud ... its social security system',
+    proudsci_f = 'How proud ... its scientific and technological achievements',
+    proudspt_f = 'How proud ... its achievements in sports',
+    proudart_f = 'How proud ... its achievements in the arts & literature',
+    proudmil_f = 'How proud ... America\'s armed forces',
+    proudhis_f = 'How proud ... its history',
+    proudgrp_f = 'How proud ... its fair and equal treatment of all groups in society')
+```
+
+## Poids de sondage
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(wgt = as.numeric(wtssnr)) %>%
+  set_variable_labels(wgt = 'survey_weights')
+```
+
+## Contrôles
+
+### Âge
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(
+    age_n = as.numeric(age),
+    age_f = cut(
+      age, 
+      breaks = c(-Inf, 25, 40, 55, 70, Inf),
+      labels = c('< 25 yo', '25-40 yo', '40-55 yo','55-70 yo', '>70 yo'),
+      right = FALSE)) %>%
+  set_variable_labels(
+    age_n = 'Age',
+    age_f = 'Age')
+```
+
+### Sexe
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(sex = factor(
+      case_when(
+        sex == 1 ~ 1,
+        sex ==  2 ~ 0),
+      levels = 0:1, 
+      labels = c('F', 'M'))) %>%
+  set_variable_labels(sex = "Sex")
+```
+
+### Race
+
+La variable race comprend seulement 3 modalités : white / black / other. La variable ethnic est beaucoup plus détaillée, avec 45 modalités. B&M l'utilisent pour ajouter une modalité hispanc à la variable race, à partir des 2 modalités suivantes : mexico (17) / puerto rico (22) / other spanish (38).
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(race_f = factor(
+      case_when(
+        ethnic %in% c(17, 22, 38) ~ 3,
+        race == 1 ~ 1,
+        race == 2 ~ 2,
+        race == 3 ~ 4,
+        TRUE ~ NA_real_),
+      levels = 1:4, 
+      labels = c('White', 'Black', 'Hispanic', 'Other race'))) %>%
+  set_variable_labels(race_f = "Race")
+```
+
+On a repris l'approche de B&M, qui fait primer l'ethnicité sur la race. Elle est discutable, car parmi les 185 personnes déclarant une ethnicité hispanique, 108 se déclarent de race blanche ou noire...
+
+```{r eval=FALSE}
+sum(data2004$ethnic %in% c(17, 22, 38), na.rm = TRUE)
+sum(data2004$ethnic %in% c(17, 22, 38) & data2004$race %in% c(1,2), na.rm = TRUE)
+
+sum(is.na(data2004$race))
+sum(is.na(data2004$race_f))
+```
+
+### Éducation
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(
+    educ_n = as.numeric(educ),
+    educ_f = cut(
+      educ, 
+      breaks = c(-Inf, 12, 16, 17, Inf),
+      labels = c('< High school', 'High school or some college', 'Bachelor', 'Advanced degree'),
+      right = FALSE)) %>%
+  set_variable_labels(
+    educ_n = 'Education',
+    educ_f = 'Education')
+```
+
+### Religion
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(reltrad_f = factor(
+    case_when(
+      # Mainline Protestant
+      denom %in% c(12, 13, 14, 15, 20, 21, 23) |
+        (denom %in% c(10, 11, 18, 28) & race == 2) |
+        other %in% c(7, 14, 15, 21, 37, 38, 56, 78, 79, 85, 86, 87, 88, 98, 103, 104, 128, 133) |
+        (other == 93 & race == 2) ~ 1,
+      # Evangelical Protestant
+      denom %in% c(32, 33, 34, 42) |
+        (denom %in% c(10, 14, 15, 18, 23, 93) & race != 2) |
+        other %in% c(2, 3, 5, 6, 9, 10, 12, 13, 16, 18, 20, 22, 24, 26, 27,
+                     28, 29, 31, 32, 34, 35, 36, 41, 42, 43, 45, 47, 51, 52,
+                     53, 55, 57, 63, 65, 66, 67, 68, 69, 76, 83, 84, 90, 91,
+                     92, 94, 97, 100, 101, 102, 106, 107, 108, 109, 110, 111,
+                     112, 115, 116, 117, 118, 120, 121, 122, 124, 125, 127,
+                     129, 131, 132, 133, 134, 135, 138, 139, 140, 146) |
+        (denom == 70 & attend >= 4 & attend != 9) ~ 2,
+      # Black Protestant
+      denom %in% c(22, 30, 31, 35, 38, 40, 41, 43, 48, 50) |
+        (denom %in% c(11, 28) & race != 2) |
+        other %in% c(1, 8, 19, 23, 25, 40, 44, 46, 48, 49, 50, 54, 
+                     70, 71,72, 73, 81, 89, 96, 99, 105, 119, 148) ~ 3,
+      # Other
+      other %in% c(11, 17, 29, 30, 33, 58, 59, 60, 61, 62, 64, 74,
+                   75, 80, 82, 95, 113, 114, 130, 136, 141, 145) ~ 6,
+      # Catholic
+      relig == 2 | other == 123 ~ 4,
+      # Jewish
+      relig == 3 ~ 5,
+      # None
+      relig == 4 ~ 0,
+      # Other
+      TRUE ~ 6),
+    levels = 0:6, 
+    labels = c('No religion', 'Mainline Protestant', 'Evangelical Protestant', 
+               'Black Protestant', 'Catholic', 'Jewish', 'Other religion'))) %>%
+  set_variable_labels(reltrad_f = 'Religion')
+
+data2004 <- data2004 %>%
+  mutate(religstr_f = factor(
+    case_when(
+      reliten == 1 ~ 1,
+      reliten %in% c(2:4) ~ 0,
+      TRUE ~ NA_real_),
+    levels = c(0:1),
+    labels = c('Strong', 'Not strong'))) %>%
+  set_variable_labels(religstr_f = 'Religion affiliation')
+```
+
+### Revenus
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(
+    realinc = as.numeric(realinc),
+    realinc2004 = realinc * 1.72,
+    lnrealinc2004 = log(realinc2004),
+    realinc_f = cut(
+      realinc, 
+      breaks = c(-Inf, 10000, 20000, 30000, Inf),
+      labels = c('< 10k', '10-20k', '20-30k','> 30k'),
+      right = FALSE)) %>%
+  set_variable_labels(
+    realinc2004 = 'Family Income',
+    lnrealinc2004 = 'Log of Family Income',
+    realinc_f = 'Family Income')
+```
+
+### Identification partisane
+
+```{r}
+# B&M recoding
+data2004 <- data2004 %>%
+  mutate(party_f = factor(
+      case_when(
+        partyid == 0 ~ 1,
+        partyid %in% c(1, 2) ~ 2,
+        partyid == 3 ~ 3,
+        partyid %in% c(4, 5) ~ 4,
+        partyid == 6 ~ 5,
+        partyid == 7 ~ 6,
+        TRUE ~ NA_real_),
+      levels = 1:6,
+      labels = c("Strong Democrat", "Democrat", "Independent", "Republican", "Strong Republican", "Other party"))) %>%
+  set_variable_labels(party_f = "Partishanship")
+
+# Simpler recoding
+data2004 <- data2004 %>%
+  mutate(party_fs = factor(
+      case_when(
+        partyid %in% c(0:2) ~ 1,
+        partyid %in% c(3,7) ~ 0,
+        partyid %in% c(4:6) ~ -1,
+        TRUE ~ NA_real_),
+      levels = -1:1,
+      labels = c("Republican", "Independent", "Democrat"))) %>%
+  set_variable_labels(party_fs = "Partishanship")
+```
+
+### Lieu de naissance
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(born_usa = factor(
+      case_when(
+        born == 1 ~ 0,
+        born ==  2 ~ 1,
+        TRUE ~ NA_real_),
+      levels = 0:1, 
+      labels = c("Born in this country", "Not born in this country"))) %>%
+  set_variable_labels(born_usa = "Was born in this country")
+```
+
+### Région
+
+```{r}
+data2004 <- data2004 %>%
+  mutate(region_f = factor(
+      case_when(
+        region %in% 1:2 ~ 1,
+        region %in% 3:4 ~ 2,
+        region %in% 5:7 ~ 3,
+        region == 8 ~ 4,
+        region == 9 ~ 5,
+        TRUE ~ NA_real_),
+      levels = 1:5, 
+      labels = c("Northeast", "Midwest", "South", "Mountain", "Pacific"))) %>%
+  set_variable_labels(region_f = "Region")
+```
+
+# Valeurs manquantes
+
+```{r}
+q2_vars_f <- paste0(q2_vars, "_f")
+q3_vars_f <- paste0(q3_vars, "_f")
+q4_vars_f <- paste0(q4_vars, "_f")
+q5_vars_f <- paste0(q5_vars, "_f")
+
+base_outcomes <- c(q2_vars, q3_vars, q4_vars, q5_vars)
+f_outcomes <- paste0(base_outcomes, "_f")
+n_outcomes <- paste0(base_outcomes, "_n")
+all_outcomes <- c(f_outcomes, n_outcomes)
+
+f_controls <- c('sex', 'age_f', 'race_f', 'educ_f', 'born_usa', 'realinc2004', 'lnrealinc2004',
+                'realinc_f', 'party_f', 'party_fs', 'religstr_f', 'reltrad_f', 'region_f')
+n_controls <- c('age_n', 'educ_n', 'realinc2004', 'lnrealinc2004')
+all_controls <- c(f_controls, n_controls)
+
+all_vars <-c (all_outcomes, all_controls, 'wgt', 'id')
+```
+
+On élimine les enquêtés auxquels le module Identité nationale n'a pas été administré, plus un ayant répondu à seulement deux questions. On élimine aussi les variables non-utilisées.
+
+```{r}
+data2004_f <- data2004 %>%
+  filter(!if_all(all_of(all_outcomes), is.na)) %>%
+  filter(id != 769) %>%
+  select(all_of(all_vars))
+```
+
+On étudie les NAs pour les outcomes : elles sont résiduelles, on pourra les imputer sans problème.
+
+```{r}
+data2004_f %>%
+  summarise(across(all_of(f_outcomes), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "NAs") %>%
+  filter(NAs > 0)
+
+data2004_f %>% filter(if_any(all_of(f_outcomes), is.na)) %>%
+  select(all_of(f_outcomes))
+```
+
+On étudie les NAs pour les contrôles : elles sont résiduelles aussi, sauf pour le revenu. On imputera aussi les deux variables concernées, mais il faudra s'en méfier par la suite.
+
+```{r}
+data2004_f %>%
+  summarise(across(all_of(all_controls), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "NAs") %>%
+  filter(NAs > 0)
+```
+
+On réalise l'imputation par knn.
+
+```{r}
+data2004_i <- data2004_f %>% kNN(k=5, imp_var = FALSE)
+```
+
+```{r}
+write_parquet(data2004_f, "data/data2004_f.parquet")
+write_parquet(data2004_i, "data/data2004_i.parquet")
+```

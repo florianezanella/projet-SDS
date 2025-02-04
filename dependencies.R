@@ -25,10 +25,13 @@ library(gridExtra)
 library(factoextra)
 library(FactoMineR)
 
+## LCA
+library(tidySEM)
+
 ## NAs
 library(VIM)
 
-# Répertoires
+# Directories
 if (!dir.exists("output")) {dir.create("output")}
 if (!dir.exists("output/desc")) {dir.create("output/desc")}
 if (!dir.exists("output/acp")) {dir.create("output/acp")}

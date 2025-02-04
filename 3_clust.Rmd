@@ -1,0 +1,364 @@
+
+```{r setup}
+source("dependencies.R")
+```
+
+```{r}
+data2004_f <- read_parquet("data/data2004_f.parquet")
+data2004_i <- read_parquet("data/data2004_i.parquet")
+```
+
+On se limite pour l'instant aux données concernant l'année 2004.
+
+# ACP
+
+Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE). 
+
+- Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived) 
+
+- Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
+
+```{r}
+f_controls <- c('sex', 'race_f', 'born_usa', 'party_fs', 'religstr_f', 'reltrad_f', 'region_f', 'realinc_f')
+
+pca_data <- data2004_i %>%
+  select(all_of(c(n_outcomes, f_controls))) %>%
+  rename_with(~ str_remove(., "_n$")) # Remove _n from variables names for cleaner outputs
+
+pca_results <- PCA(pca_data, scale.unit = TRUE, quali.sup = f_controls, ncp = 10, graph = FALSE)
+```
+
+```{r}
+# Fonction pour tracer les corrplots
+draw_corrplot <- function(data, title, subtitle, filename, range) {
+  corrplot <- ggcorrplot(
+    data,
+    method = "square",
+    ggtheme = theme_grey,
+    show.legend = TRUE,
+    outline.color = "#636363",
+    tl.cex = 8) +
+    
+    if (identical(range, c(-1,1))) {
+      scale_fill_gradient2(limit = c(-1,1), 
+                           low = "#6D9EC1", 
+                           mid = "white", 
+                           high =  "#E46726", 
+                           midpoint = 0, 
+                           oob = scales::oob_squish)}
+  else if (identical(range, c(0,1))) {
+    scale_fill_gradient2(limit = c(0, 1), 
+                         low = "white", 
+                         high = "#E46726", 
+                         oob = scales::oob_squish)}
+  
+  corrplot <- corrplot + theme(
+    legend.title = element_blank(),
+    legend.key.width = unit(0.3, "cm"),
+    legend.key.height = unit(1, "null"))
+    
+  # On ajoute titres et sous-titres pour les graphs affichés
+  corrplot <- corrplot + 
+    ggtitle(title) +
+    theme(plot.title = element_text(hjust = 0.5, size = 12))
+  
+  if (subtitle != "") {
+    corrplot <- corrplot + 
+      labs(subtitle = subtitle) + 
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
+  }
+  
+  ggsave(filename, plot = corrplot)
+  
+  print(corrplot)
+}
+```
+
+```{r}
+# Résultats
+## Histogramme de la contribution des axes à la variance totale
+screeplot <- fviz_screeplot(pca_results, addlabels = TRUE, ylim = c(0, 45), title = "") + theme_gray()
+screeplot$layers[[1]]$aes_params$fill <- "lightskyblue"
+screeplot$layers[[1]]$aes_params$colour <- "cornflowerblue"
+screeplot$layers[[2]]$aes_params$colour <- "darkblue"
+screeplot$layers[[3]]$aes_params$colour <- "darkblue"
+screeplot$layers[[4]]$aes_params$colour <- "darkblue"
+screeplot$labels$x <- "Dimensions"
+screeplot$labels$y <- "% de variance expliquée"
+screeplot$labels$title = "Histogramme de l'inertie totale"
+screeplot$theme$plot.title$hjust <- 0.5
+screeplot
+ggsave("output/acp/screeplot.png", plot = screeplot, width = 10, height = 6, units = "in", dpi = 300)
+
+## Contribution des variables aux axes
+## Correspond à la qualité de représentation des variables (= cos2) normalisée entre 1 et 100
+## Présentable à l'aide d'un tableau...
+coeffs <- pca_results$var$contrib
+labels <- rownames(pca_results$var$contrib)
+axis_df <- data.frame(labels, coeffs, row.names = NULL)
+colnames(axis_df) <- c("Variables", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
+axis_tbl <- axis_df %>%
+  gt() %>%
+  fmt_number(decimals = 2, drop_trailing_zeros = TRUE) %>%
+  tab_header("Contribution des variables à l'inertie des axes", subtitle = NULL, preheader = NULL) %>%
+  tab_spanner(label = "Axes", columns = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), id = "axes") %>%
+  data_color(method = "numeric", columns = !matches("Variables"), palette ="Oranges", direction = "column") %>%
+  tab_row_group(label = "How close do you feel to?", rows = which(.data$Variables %in% q2_vars), id = "close") %>%
+  tab_row_group(label = "How important do you think each of the following is?", rows = which(.data$Variables %in% q3_vars), id = "imp") %>%
+  tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$Variables %in% q4_vars), id = "agree") %>%
+  tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$Variables %in% q5_vars), id = "proud") %>%
+  row_group_order(c("close", "imp", "agree", "proud")) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = list(
+      cells_column_labels(columns = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")),
+      cells_body(columns = !matches("Variables")))) %>%
+  tab_style(
+    style = cell_fill(color = "lightgrey"),
+    locations = cells_column_labels(columns = c("1", "3", "5", "7", "9"))) 
+axis_tbl
+gtsave(axis_tbl, filename = "contrib_axes.docx", path = "output/acp/")
+
+## ... d'un corrplot ...
+draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variables à l'inertie des axes", "", "output/acp/contrib_axes.png", range = c(0,1))
+
+## ... ou de graphs
+contrib_1 <- fviz_contrib(pca_results, choice = "var", axes = 1, top = 10)
+contrib_1$layers[[1]]$aes_params$fill <- "lightskyblue"
+contrib_1$layers[[1]]$aes_params$colour <- "cornflowerblue"
+contrib_1$layers[[2]]$aes_params$colour <- "darkblue"
+contrib_1$labels$title <- "Contribution des variables à l'axe 1"
+contrib_1$theme$plot.title$hjust <- 0.5
+contrib_1
+ggsave("output/acp/contrib_axe_1.png", plot = contrib_1)
+
+contrib_2 <- fviz_contrib(pca_results, choice = "var", axes = 2, top = 10)
+contrib_2$layers[[1]]$aes_params$fill <- "lightskyblue"
+contrib_2$layers[[1]]$aes_params$colour <- "cornflowerblue"
+contrib_2$layers[[2]]$aes_params$colour <- "darkblue"
+contrib_2$labels$title <- "Contribution des variables à l'axe 2"
+contrib_2$theme$plot.title$hjust <- 0.5
+contrib_2
+ggsave("output/acp/contrib_axe_2.png", plot = contrib_2)
+
+## Corrélation des variables aux axes
+## Avec à nouveau deux représentations possibles...
+## Des corrplots
+draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcomes aux axes", "", "output/acp/corr_outc_axes.png", range = c(-1,1))
+draw_corrplot(t(pca_results$quali.sup$coord[, 1:5]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes.png", range = c(-1,1))
+## Des projections sur les plans factoriels
+proj_var <- fviz_pca_var(pca_results, 
+             axes = c(1, 2),
+             select.var = list(contrib = 12),
+             col.circle = '#636363',
+             col.var = "contrib",
+             gradient.cols = c("cornflowerblue", "#E46726"),
+             title = "Projection des variables sur les axes 1 et 2", 
+             repel = TRUE) + 
+  theme_gray() +
+  theme(plot.title = element_text(hjust = 0.5))
+proj_var$layers <- proj_var$layers[-c(4, 5)] # removing original hline and vline
+proj_var <- proj_var +
+  geom_hline(yintercept = 0, color = "#636363", alpha = 0.5, linetype = "twodash") +
+  geom_vline(xintercept = 0, color = "#636363", alpha = 0.5, linetype = "twodash")
+proj_var
+ggsave("output/acp/proj_var.png", plot = proj_var)
+
+proj_ind <- fviz_pca_ind(pca_results, 
+             axes = c(1, 2),
+             habillage = "party_fs",
+             pointshape = 16,
+             alpha.ind = 0.7,
+             title = "Projection des individus sur les axes 1 et 2", 
+             label = "none",
+             repel = TRUE) +
+  theme_gray() +
+  scale_color_manual(
+    name = "Affiliation\npartisane",
+    values = c("Republican" = "coral1", "Independent" = "lightgreen", "Democrat" = "cornflowerblue"),
+    labels = c("Republican" = "Republicains", "Independent" = "Indépendants", "Democrat" = "Démocrates")) +
+  theme(plot.title = element_text(hjust = 0.5))
+proj_ind$layers <- proj_ind$layers[-c(2, 3)] # removing original hline and vline
+proj_ind <- proj_ind +
+  geom_hline(yintercept = 0, color = "#636363", linetype = "twodash") +
+  geom_vline(xintercept = 0, color = "#636363", linetype = "twodash")
+proj_ind
+ggsave("output/acp/proj_ind.png", plot = proj_ind)
+
+proj_ind <- proj_ind + xlim(-3, 3) + ylim(-3, 3) # Zoom in
+ggsave("output/acp/proj_ind_zoom.png", plot = proj_ind)
+
+## Qualité de représentation des variables
+draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc.png", range = c(0,1))
+draw_corrplot(t(pca_results$quali.sup$cos2[, 1:5]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr.png", range = c(0,1))
+```
+
+# kmeans
+
+https://www.datanovia.com/en/blog/types-of-clustering-methods-overview-and-quick-start-r-code/
+https://bookdown.org/evraloui/lbira2110/clustering.html
+
+FUNcluster 	= a partitioning function which accepts as first argument a (data) matrix like x, second argument, say k, k >= 2, the number of clusters desired, and returns a list with a component named cluster which contains the grouping of observations. Allowed values include: 
+kmeans, 
+cluster::pam, 
+cluster::clara, 
+cluster::fanny, # Fuzzy kmeans
+cluster::hcut, # Classification ascendante hiérarchique
+etc.
+
+```{r eval=FALSE}
+data_km <- data2004_i %>% select(n_outcomes) %>% na.omit() %>% scale()
+
+fviz_nbclust(data_km, 
+             FUNcluster = cluster::pam, 
+             method = "gap_stat") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+fviz_nbclust(data_km, 
+             FUNcluster = cluster::pam, 
+             method='silhouette') +
+  theme(plot.title = element_text(hjust = 0.5))
+
+fviz_nbclust(data_km, 
+             FUNcluster = cluster::pam, 
+             method='wss') +
+  theme(plot.title = element_text(hjust = 0.5))
+
+results_km <- cluster::pam(data_km, 2, nstart = 25)
+results_km <- kmeans(data_km, 4, nstart = 25)
+
+fviz_cluster(results_km, 
+             data = data_km,
+             labelsize = 0,
+             palette = c("#00AFBB", "#2E9FDF", "#E7B800", "#FC4E07"),
+             ggtheme = theme_minimal(),
+             main = "Partitioning Clustering Plot") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+# DBScan
+
+```{r}
+library("fpc")
+db_results <- fpc::dbscan(data_km, eps = 4, MinPts = 5)
+
+fviz_cluster(db_results,
+             data = data_km,
+             stand = FALSE,
+             ellipse = TRUE,
+             show.clust.cent = TRUE,
+             geom = "point",
+             palette = "jco")
+
+print(db_results)
+
+print(paste("Number of clusters:", length(unique(db_results$cluster[db_results$cluster != 0]))))
+print(paste("Number of noise points:", sum(db_results$cluster == 0)))
+```
+
+# LCA
+
+```{r}
+data2004_i <- read_parquet("data/data2004_i.parquet")
+library(tidySEM)
+```
+
+```{r}
+lpa.data <- data2004_i %>% select(all_of(n_outcomes))
+lpa.res <- mx_profiles(data = lpa.data, classes = 1:8)
+fit <- table_fit(lpa.res)
+
+write_parquet(fit, "output/lpa_res.parquet")
+
+fit %>%
+  select(Classes, LL, Parameters, AIC, BIC) %>%
+  gt() %>%
+  fmt_number(c(LL, AIC, BIC), decimals = 1) %>%
+  tab_style(
+    style = cell_fill(
+      color = "lightgreen",
+      alpha = 0.7),
+    locations = cells_body(
+      columns = AIC,
+      rows = AIC == min(AIC, na.rm = TRUE))) %>%
+  tab_style(
+    style = cell_fill(
+      color = "lightgreen",
+      alpha = 0.7),
+    locations = cells_body(
+      columns = BIC,
+      rows = BIC == min(BIC, na.rm = TRUE))) %>%
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", style = "italic"),
+      cell_text(align = "center")),
+    locations = cells_column_labels(everything())) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body())
+```
+
+```{r}
+predict.probs <- class_prob(lpa.res$`equal var 2`)
+predict.probs$sum.posterior %>%
+  gt() %>%
+  fmt_number(count, decimals = 0) %>%
+  fmt_number(proportion, decimals = 3) %>%
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", style = "italic"),
+      cell_text(align = "center")),
+    locations = cells_column_labels(everything()))
+
+mg_probs <-
+  rbind(
+    lpa.res$`equal var 2`$output$matrices$class1.M,
+    lpa.res$`equal var 2`$output$matrices$class2.M) %>%
+  as.data.frame() %>%
+  mutate(class = row_number()) %>%
+  setNames(c(outcomes, "p.class")) %>%
+  pivot_longer(
+    cols = -p.class,
+    names_to = "Column",
+    values_to = "Value") %>%
+  pivot_wider(
+    names_from = p.class,
+    values_from = Value) %>%
+  rename(
+    Outcome = "Column",
+    "Class 1" = "1",
+    "Class 2" = "2") %>%
+  gt() %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", style = "italic"),
+      cell_text(align = "center")),
+    locations = cells_column_labels(everything()))
+mg_probs
+
+plot_profiles(lpa.res$`equal var 4`)
+```
+
+
+```{r}
+lpa.data <- data2004_i %>% select(all_of(n_outcomes))
+lpa.res <- mx_profiles(data = lpa.data, classes = 1:8)
+fit <- table_fit(lpa.res)
+
+predictions = as.data.frame(matrix(nrow=1215, ncol=0))
+probs <- class_prob(lpa.res$`equal var 2`)
+predictions <- cbind(
+  predictions,
+  probs$individual %>% as.data.frame() %>% select(predicted) %>% rename(K2 = predicted))
+
+predictions <- as.data.frame(matrix(nrow=1215, ncol=0))
+for (i in 1:8) {
+  probs <- class_prob(lpa.res[[paste0("equal var ", i)]])
+  predictions <- cbind(
+    predictions,
+    probs$individual %>% as.data.frame() %>% select(predicted) %>% rename(!!paste0("K", i) := predicted)
+  )
+}
+write_parquet(predictions, "output/lpa_predictions.parquet")
+```

@@ -1,12 +1,16 @@
+---
+title: "1_prepare"
+output: html_document
+---
 
 ```{r setup}
 source("dependencies.R")
 ```
 
 ```{r}
-# data1996 <- read_dta("data/GSS1996.dta")
-data2004 <- read_dta("data/GSS2004.dta")
-# data2014 <- read_dta("data/GSS2014.dta")
+# data1996 <- read_dta("data/source/GSS1996.dta")
+data2004 <- read_dta("data/source/GSS2004.dta")
+# data2014 <- read_dta("data/source/GSS2014.dta")
 ```
 
 On se limite pour l'instant aux données concernant l'année 2004.

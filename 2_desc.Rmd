@@ -34,7 +34,9 @@ f_outcomes <- c(q2_vars_f, q3_vars_f, q4_vars_f, q5_vars_f)
 n_outcomes <- c(q2_vars_n, q3_vars_n, q4_vars_n, q5_vars_n)
 ```
 
-## Outcomes
+# Outcomes
+
+## Table
 
 ```{r}
 likert_table <- 
@@ -77,6 +79,8 @@ likert_table <-
 
 likert_table
 ```
+
+## Likert plots
 
 ```{r include=FALSE}
 plot <- gglikert(data2004_f,
@@ -165,23 +169,188 @@ plot <- ggpubr::ggarrange(p1, p2, p3, p4,
 ggsave("output/desc/likert_plots_2004.png", plot = plot, width = 10, height = 15, dpi = 300)
 ```
 
+## PCA
+
+
+Il faut bien décider / justifier de scaler ou pas (scale.unit = TRUE / FALSE). 
+
+- Sans scaling : 2 axes, portant 26 et 13 % de l'inertie totale, dont l'opposition est essentiellement tirée par 3 variables (amchrstn, ambornin, amlived) 
+
+- Avec scaling : 2 axes, potant 26 et 11% de l'inertie totale, dont l'opposition est tirée par une quinzaine de variables (dont les précédentes, dont l'effet est en quelque sorte dilué)
+
 ```{r}
-library(ggridges)
+f_controls <- c('sex', 'race_f', 'born_usa', 'party_fs', 'religstr_f', 'reltrad_f', 'region_f', 'realinc_f')
 
-data_long <- data2004_i %>%
-  select(all_of(n_outcomes)) %>%
-  mutate(across(everything(), ~ scale(., center = TRUE, scale = TRUE)[, 1])) %>%
-  filter(across(everything(), ~ abs(. - mean(., na.rm = TRUE)) <= 3 * sd(., na.rm = TRUE))) %>% # remove outliers
-  pivot_longer(
-    cols = everything(),
-    names_to = "Variable",
-    values_to = "Value"
-  )
+pca_data <- data2004_i %>%
+  select(all_of(c(n_outcomes, f_controls))) %>%
+  rename_with(~ str_remove(., "_n$")) # Remove _n from variables names for cleaner outputs
 
-ggplot(data_long, aes(x = Value, y = Variable)) +
-  geom_density_ridges(scale = 4, rel_min_height = 0.01, alpha = 0.7)
-  labs(x = "", y = "") +
-  theme_minimal()
+pca_results <- PCA(pca_data, scale.unit = TRUE, quali.sup = f_controls, ncp = 10, graph = FALSE)
 ```
 
-## Contrôles
+```{r}
+# Fonction pour tracer les corrplots
+draw_corrplot <- function(data, title, subtitle, filename, range) {
+  corrplot <- ggcorrplot(
+    data,
+    method = "square",
+    ggtheme = theme_grey,
+    show.legend = TRUE,
+    outline.color = "#636363",
+    tl.cex = 8) +
+    
+    if (identical(range, c(-1,1))) {
+      scale_fill_gradient2(limit = c(-1,1), 
+                           low = "#6D9EC1", 
+                           mid = "white", 
+                           high =  "#E46726", 
+                           midpoint = 0, 
+                           oob = scales::oob_squish)}
+  else if (identical(range, c(0,1))) {
+    scale_fill_gradient2(limit = c(0, 1), 
+                         low = "white", 
+                         high = "#E46726", 
+                         oob = scales::oob_squish)}
+  
+  corrplot <- corrplot + theme(
+    legend.title = element_blank(),
+    legend.key.width = unit(0.3, "cm"),
+    legend.key.height = unit(1, "null"))
+    
+  # On ajoute titres et sous-titres pour les graphs affichés
+  corrplot <- corrplot + 
+    ggtitle(title) +
+    theme(plot.title = element_text(hjust = 0.5, size = 12))
+  
+  if (subtitle != "") {
+    corrplot <- corrplot + 
+      labs(subtitle = subtitle) + 
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
+  }
+  
+  ggsave(filename, plot = corrplot)
+  
+  print(corrplot)
+}
+```
+
+```{r}
+# Résultats
+## Histogramme de la contribution des axes à la variance totale
+screeplot <- fviz_screeplot(pca_results, addlabels = TRUE, ylim = c(0, 45), title = "") + theme_gray()
+screeplot$layers[[1]]$aes_params$fill <- "lightskyblue"
+screeplot$layers[[1]]$aes_params$colour <- "cornflowerblue"
+screeplot$layers[[2]]$aes_params$colour <- "darkblue"
+screeplot$layers[[3]]$aes_params$colour <- "darkblue"
+screeplot$layers[[4]]$aes_params$colour <- "darkblue"
+screeplot$labels$x <- "Dimensions"
+screeplot$labels$y <- "% de variance expliquée"
+screeplot$labels$title = "Histogramme de l'inertie totale"
+screeplot$theme$plot.title$hjust <- 0.5
+screeplot
+ggsave("output/acp/screeplot.png", plot = screeplot, width = 10, height = 6, units = "in", dpi = 300)
+
+## Contribution des variables aux axes
+## Correspond à la qualité de représentation des variables (= cos2) normalisée entre 1 et 100
+## Présentable à l'aide d'un tableau...
+coeffs <- pca_results$var$contrib
+labels <- rownames(pca_results$var$contrib)
+axis_df <- data.frame(labels, coeffs, row.names = NULL)
+colnames(axis_df) <- c("Variables", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
+axis_tbl <- axis_df %>%
+  gt() %>%
+  fmt_number(decimals = 2, drop_trailing_zeros = TRUE) %>%
+  tab_header("Contribution des variables à l'inertie des axes", subtitle = NULL, preheader = NULL) %>%
+  tab_spanner(label = "Axes", columns = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), id = "axes") %>%
+  data_color(method = "numeric", columns = !matches("Variables"), palette ="Oranges", direction = "column") %>%
+  tab_row_group(label = "How close do you feel to?", rows = which(.data$Variables %in% q2_vars), id = "close") %>%
+  tab_row_group(label = "How important do you think each of the following is?", rows = which(.data$Variables %in% q3_vars), id = "imp") %>%
+  tab_row_group(label = "How much do you agree or disagree with the following statements?", rows = which(.data$Variables %in% q4_vars), id = "agree") %>%
+  tab_row_group(label = "How proud are you of America in each of the following?", rows = which(.data$Variables %in% q5_vars), id = "proud") %>%
+  row_group_order(c("close", "imp", "agree", "proud")) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = list(
+      cells_column_labels(columns = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")),
+      cells_body(columns = !matches("Variables")))) %>%
+  tab_style(
+    style = cell_fill(color = "lightgrey"),
+    locations = cells_column_labels(columns = c("1", "3", "5", "7", "9"))) 
+axis_tbl
+gtsave(axis_tbl, filename = "contrib_axes.docx", path = "output/acp/")
+
+## ... d'un corrplot ...
+draw_corrplot(t(pca_results$var$contrib[, 1:10]/100), "Contribution des variables à l'inertie des axes", "", "output/acp/contrib_axes.png", range = c(0,1))
+
+## ... ou de graphs
+contrib_1 <- fviz_contrib(pca_results, choice = "var", axes = 1, top = 30)
+contrib_1$layers[[1]]$aes_params$fill <- "lightskyblue"
+contrib_1$layers[[1]]$aes_params$colour <- "cornflowerblue"
+contrib_1$layers[[2]]$aes_params$colour <- "darkblue"
+contrib_1$labels$title <- "Contribution des variables à l'axe 1"
+contrib_1$theme$plot.title$hjust <- 0.5
+contrib_1
+ggsave("output/acp/contrib_axe_1.png", plot = contrib_1)
+
+contrib_2 <- fviz_contrib(pca_results, choice = "var", axes = 2, top = 30)
+contrib_2$layers[[1]]$aes_params$fill <- "lightskyblue"
+contrib_2$layers[[1]]$aes_params$colour <- "cornflowerblue"
+contrib_2$layers[[2]]$aes_params$colour <- "darkblue"
+contrib_2$labels$title <- "Contribution des variables à l'axe 2"
+contrib_2$theme$plot.title$hjust <- 0.5
+contrib_2
+ggsave("output/acp/contrib_axe_2.png", plot = contrib_2)
+
+## Corrélation des variables aux axes
+## Avec à nouveau deux représentations possibles...
+## Des corrplots
+draw_corrplot(t(pca_results$var$coord[, 1:5]), title = "Corrélation des outcomes aux axes", "", "output/acp/corr_outc_axes.png", range = c(-1,1))
+draw_corrplot(t(pca_results$quali.sup$coord[, 1:5]), "Corrélation des régresseurs", "aux axes", "output/acp/corr_rég_axes.png", range = c(-1,1))
+## Des projections sur les plans factoriels
+proj_var <- fviz_pca_var(pca_results, 
+             axes = c(1, 2),
+             select.var = list(contrib = 12),
+             col.circle = '#636363',
+             col.var = "contrib",
+             gradient.cols = c("cornflowerblue", "#E46726"),
+             title = "Projection des variables sur les axes 1 et 2", 
+             repel = TRUE) + 
+  theme_gray() +
+  theme(plot.title = element_text(hjust = 0.5))
+proj_var$layers <- proj_var$layers[-c(4, 5)] # removing original hline and vline
+proj_var <- proj_var +
+  geom_hline(yintercept = 0, color = "#636363", alpha = 0.5, linetype = "twodash") +
+  geom_vline(xintercept = 0, color = "#636363", alpha = 0.5, linetype = "twodash")
+proj_var
+ggsave("output/acp/proj_var.png", plot = proj_var)
+
+proj_ind <- fviz_pca_ind(pca_results, 
+             axes = c(1, 2),
+             habillage = "party_fs",
+             pointshape = 16,
+             alpha.ind = 0.7,
+             title = "Projection des individus sur les axes 1 et 2", 
+             label = "none",
+             repel = TRUE) +
+  theme_gray() +
+  scale_color_manual(
+    name = "Affiliation\npartisane",
+    values = c("Republican" = "coral1", "Independent" = "lightgreen", "Democrat" = "cornflowerblue"),
+    labels = c("Republican" = "Republicains", "Independent" = "Indépendants", "Democrat" = "Démocrates")) +
+  theme(plot.title = element_text(hjust = 0.5))
+proj_ind$layers <- proj_ind$layers[-c(2, 3)] # removing original hline and vline
+proj_ind <- proj_ind +
+  geom_hline(yintercept = 0, color = "#636363", linetype = "twodash") +
+  geom_vline(xintercept = 0, color = "#636363", linetype = "twodash")
+proj_ind
+ggsave("output/acp/proj_ind.png", plot = proj_ind)
+
+proj_ind <- proj_ind + xlim(-3, 3) + ylim(-3, 3) # Zoom in
+ggsave("output/acp/proj_ind_zoom.png", plot = proj_ind)
+
+## Qualité de représentation des variables
+draw_corrplot(t(pca_results$var$cos2[, 1:5]), "Qualité de représentation", "des outcomes", "output/acp/qual_rep_outc.png", range = c(0,1))
+draw_corrplot(t(pca_results$quali.sup$cos2[, 1:5]), "Qualité de représentation", "des régresseurs", "output/acp/qual_rep_régr.png", range = c(0,1))
+```
+
+# Controls
